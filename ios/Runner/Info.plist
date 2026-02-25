@@ -41,6 +41,10 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>SoundSense measures noise levels using your microphone. No audio is recorded or stored.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Your location is used to tag measurements on the noise map.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "166643701889",
+    "project_id": "soundsense-bfff9",
+    "storage_bucket": "soundsense-bfff9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:166643701889:android:88f6ab667805a1fc6d1580",
+        "android_client_info": {
+          "package_name": "com.snutils.soundsense"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDHx1iozTP1-IIcRdGRMJ-XRvbjBKkrO9o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

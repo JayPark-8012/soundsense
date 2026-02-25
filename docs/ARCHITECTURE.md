@@ -53,8 +53,8 @@ lib/
 │   │   ├── providers/
 │   │   │   └── map_provider.dart
 │   │   ├── widgets/
-│   │   │   ├── noise_map_marker.dart
-│   │   │   └── location_detail_sheet.dart
+│   │   │   ├── noise_map_marker.dart      # 리플 애니메이션 마커
+│   │   │   └── marker_info_sheet.dart     # 탭 시 모달
 │   │   └── screens/
 │   │       └── map_screen.dart
 │   │
@@ -77,9 +77,12 @@ lib/
 │       ├── premium_provider.dart # PRO 상태 관리
 │       └── locale_provider.dart  # 언어 설정
 │
-└── l10n/                         # 국제화
-    ├── app_en.arb                # 영어
-    └── app_ko.arb                # 한국어
+├── l10n/                         # 국제화
+│   ├── app_en.arb                # 영어
+│   └── app_ko.arb                # 한국어
+│
+assets/
+└── map_style_dark.json           # 다크 맵 스타일
 ```
 
 ---
@@ -120,6 +123,7 @@ features → features   ❌ 금지 (직접 참조 금지, shared 경유)
 /history            → HistoryScreen
 /history/:id        → SessionDetailScreen
 /map                → MapScreen
+/map?sessionId=X    → MapScreen (장소 탭 시 세션 포커스용)
 /settings           → SettingsScreen
 /settings/guide     → NoiseGuideScreen
 /onboarding         → OnboardingScreen (최초 1회)

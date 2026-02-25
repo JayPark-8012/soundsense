@@ -11,9 +11,10 @@ Flutter (iOS + Android) | 영어 + 한국어 동시 지원 | 로그인 없음
 
 ## 코드 작성 전 반드시 확인할 파일
 1. `docs/ARCHITECTURE.md` — 어느 폴더에 파일을 만들지
-2. `docs/FEATURES.md` — 이 기능이 무료인지 PRO인지
-3. `docs/DATA_MODEL.md` — 데이터 구조 변경 전 확인
-4. `docs/CONVENTIONS.md` — 네이밍 규칙
+2. `docs/PLANNING.md` — 기획서
+3. `docs/FEATURES.md` — 이 기능이 무료인지 PRO인지
+4. `docs/DATA_MODEL.md` — 데이터 구조 변경 전 확인
+5. `docs/CONVENTIONS.md` — 네이밍 규칙
 
 ---
 
@@ -64,6 +65,25 @@ Flutter (iOS + Android) | 영어 + 한국어 동시 지원 | 로그인 없음
 - 측정 화면에 광고 없음 (핵심 차별점)
 - 모든 전환에 애니메이션 (200~300ms)
 - 소음 레벨 색상: 파랑/초록/노랑/주황/빨강 (constants/db_levels.dart 참조)
+
+---
+
+## 지도 마커 스펙 (중요)
+- 일반 마커 사용 금지
+- 리플 애니메이션 마커만 사용 (NoiseMapMarker)
+- 원의 크기: avgDb 비례 (40dB=최소, 100dB=최대)
+- 원의 색상: DbLevel 색상 5단계
+- 원의 속도: dB 클수록 빠르게 퍼짐
+- 투명도: 퍼질수록 0으로 소멸
+- 클러스터링: v2 예정, v1에서 구현 금지
+
+---
+
+## UX 핵심 원칙
+- Stop 탭 → 자동으로 세션 저장 바텀시트 등장 (별도 저장 버튼 없음)
+- 저장 기본값: 위치 ON, 지도 공유 ON, 메모 접힘 상태
+- Start/Stop 버튼은 항상 하단 고정 (스크롤에 영향 받지 않음)
+- 측정 화면 앱바 배경 = AppColors.background (배경 끊김 없이 통일)
 
 ---
 

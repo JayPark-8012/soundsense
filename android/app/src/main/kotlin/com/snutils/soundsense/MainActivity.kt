@@ -1,4 +1,4 @@
-package com.soundsense.soundsense
+package com.snutils.soundsense
 
 import io.flutter.embedding.android.FlutterActivity
 

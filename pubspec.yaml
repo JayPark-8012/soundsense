@@ -50,6 +50,21 @@ dependencies:
   # 권한
   permission_handler: ^11.4.0
 
+  # 화면 꺼짐 방지
+  wakelock_plus: ^1.2.8
+
+  # 경로
+  path_provider: ^2.1.5
+
+  # 공유
+  share_plus: ^10.1.4
+
+  # 로컬 설정
+  shared_preferences: ^2.3.3
+
+  # 앱 정보
+  package_info_plus: ^8.1.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -62,3 +77,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   generate: true
+
+  assets:
+    - assets/map_style_dark.json

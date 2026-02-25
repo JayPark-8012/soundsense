@@ -48,7 +48,10 @@ final _routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/map',
-                builder: (context, state) => const MapScreen(),
+                builder: (context, state) {
+                  final sessionId = state.uri.queryParameters['sessionId'];
+                  return MapScreen(focusSessionId: sessionId);
+                },
               ),
             ],
           ),
