@@ -21,23 +21,27 @@
 ## Phase 2 — 측정 기능
 
 ### 무료
-- [ ] 마이크 권한 요청 및 처리
-- [ ] noise_meter 실시간 dB 스트림 수신
-- [ ] MeasurementNotifier (Riverpod)
-- [ ] DbGaugeWidget (반원형 CustomPainter)
-- [ ] DbNumberDisplay (숫자 + 애니메이션)
-- [ ] LevelBadge (레벨 텍스트 + 색상)
+- [x] 마이크 권한 요청 및 처리
+- [x] noise_meter 실시간 dB 스트림 수신
+- [x] MeasurementNotifier (Riverpod)
+- [x] DbGaugeWidget (반원형 CustomPainter)
+  - [x] 피크 홀드 바늘 (빨간선, 3초 감쇄)
+- [x] DbNumberDisplay (숫자 + 애니메이션)
+- [x] LevelBadge (레벨 텍스트 + 색상)
 - [x] WaveformVisualizer (실시간 파형)
-- [ ] 측정 시작/정지 버튼
+- [x] 측정 시작/정지 버튼
 - [ ] WakeLock (화면 꺼짐 방지)
-- [ ] 85dB 초과 햅틱 진동
+- [x] 85dB 초과 햅틱 진동
 - [ ] 85dB 초과 경고 배너
-- [ ] 배경 색상 레벨 연동 (opacity 8~12%)
+- [x] 배경 색상 레벨 연동 (opacity 8~12%)
 - [x] 세션 저장 바텀시트
   - [x] Stop 탭 시 자동 등장 (별도 저장 버튼 제거)
   - [x] 기본값: 위치 ON, 지도 공유 ON, 메모 접힘
 - [x] Start/Stop 버튼 하단 고정
 - [x] 앱바 배경 끊김 수정
+- [x] MIN / AVG / MAX 통계 표시
+- [x] Fast/Slow 응답 속도 토글 (200ms / 500ms + 이동평균)
+- [x] WHO 기준 안전 노출 시간 텍스트
 - [ ] 위치 태그 (선택)
 - [ ] 지도 공유 토글
 - [ ] 소음 레벨 가이드 바텀시트
@@ -88,11 +92,12 @@
 
 ## Phase 5 — 온보딩 & 설정
 
-- [ ] 온보딩 Step 1: 앱 소개
-- [ ] 온보딩 Step 2: 소음 기준 안내
-- [ ] 온보딩 Step 3: 마이크 권한
-- [ ] 온보딩 Step 4: 위치 권한 (선택)
-- [ ] 최초 실행 여부 저장 (SharedPreferences)
+- [x] 온보딩 Step 1: 앱 소개
+- [x] 온보딩 Step 2: 소음 기준 안내
+- [x] 온보딩 Step 3: 마이크 권한
+- [x] 온보딩 Step 4: 위치 권한 (선택)
+- [x] 최초 실행 여부 저장 (SharedPreferences)
+- [x] kDebugMode 온보딩 리셋 버튼 (설정 화면)
 - [x] 설정 화면
 - [x] 알림 설정 (85dB 경고, 주간 리포트)
 - [x] 언어 전환 (EN / KR)
@@ -105,7 +110,7 @@
 ## Phase 6 — PRO 잠금 UI
 
 - [x] PremiumGuard 위젯 (공통 잠금 처리)
-- [x] 히스토리 7일 이상 조회 잠금 처리
+- [x] 히스토리 잠금 방식 변경 (목록 전체 표시 + 상세만 PRO 잠금)
 - [x] 세션 시간대별 라인 차트 잠금 처리
 - [x] 월간 PDF 리포트 잠금 처리
 - [x] CSV 내보내기 잠금 처리
@@ -115,11 +120,14 @@
 
 ## Phase 7 — 완성도
 
-- [ ] 모든 화면 전환 애니메이션
-- [ ] 햅틱 피드백 (버튼, 경고)
-- [ ] dB 숫자 변화 부드러운 보간
-- [ ] 레벨 색상 크로스페이드
-- [ ] 게이지 바늘 스프링 애니메이션
+- [x] 모든 화면 전환 애니메이션
+- [x] 햅틱 피드백 (버튼, 경고)
+- [x] dB 숫자 변화 부드러운 보간
+- [x] 레벨 색상 크로스페이드
+- [x] 게이지 바늘 스프링 애니메이션
+- [x] 기기 캘리브레이션 (설정 화면 슬라이더)
+- [x] Noise Card 생성 + 공유
+      (측정 저장 후 카드 이미지 → 시스템 공유)
 
 ---
 
@@ -133,12 +141,16 @@
 
 ## Phase 9 — 수익화
 
-- [ ] AdMob 배너 광고 (히스토리 화면 하단)
-- [ ] RevenueCat 초기화
+- [ ] AdMob 초기화 (google_mobile_ads)
+- [ ] 전면 광고 (Interstitial) — 세션 저장 3회마다 1회
+- [ ] 리워드 광고 (Rewarded) — 무료 유저 PDF 요청 시
+- [ ] RevenueCat 초기화 (purchases_flutter)
 - [ ] 구독 상품 연동 (월간 / 연간)
+- [ ] isPremiumProvider ↔ RevenueCat 연결
+- [ ] PremiumBottomSheet ↔ RevenueCat 결제 연결
 - [ ] 7일 무료 체험
 - [ ] 구독 복원 기능
-- [ ] PRO 상태에 따른 광고 제거
+- [ ] PRO 상태에 따른 광고 제거 (전면 + 리워드 모두)
 
 ---
 

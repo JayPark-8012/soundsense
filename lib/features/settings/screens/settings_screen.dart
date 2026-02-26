@@ -1,12 +1,19 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
+import 'package:soundsense/features/onboarding/screens/onboarding_screen.dart'
+    show kOnboardingDoneKey;
 import 'package:soundsense/features/settings/providers/settings_provider.dart';
 import 'package:soundsense/features/settings/screens/disclaimer_screen.dart';
 import 'package:soundsense/features/settings/screens/noise_guide_screen.dart';
 import 'package:soundsense/features/settings/screens/privacy_policy_screen.dart';
+import 'package:soundsense/shared/providers/calibration_provider.dart';
+import 'package:soundsense/shared/providers/premium_provider.dart';
 import 'package:soundsense/shared/widgets/premium_bottom_sheet.dart';
 import 'package:soundsense/shared/widgets/premium_guard.dart';
 
@@ -19,6 +26,7 @@ class SettingsScreen extends ConsumerWidget {
     final is85dbAlert = ref.watch(is85dbAlertProvider);
     final isWeeklyReport = ref.watch(isWeeklyReportProvider);
     final selectedLocale = ref.watch(selectedLocaleProvider);
+    final calibrationOffset = ref.watch(calibrationOffsetProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -33,6 +41,12 @@ class SettingsScreen extends ConsumerWidget {
           children: [
             // ─── PRO 카드 ───
             _buildProCard(context),
+            const SizedBox(height: 24),
+
+            // ─── 캘리브레이션 섹션 ───
+            _buildSectionHeader('Calibration'),
+            const SizedBox(height: 8),
+            _buildCalibrationSection(ref, calibrationOffset),
             const SizedBox(height: 24),
 
             // ─── 알림 섹션 ───
@@ -147,6 +161,34 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
             _buildVersionTile(),
+
+            // ─── Debug 섹션 (kDebugMode only) ───
+            if (kDebugMode) ...[
+              const SizedBox(height: 24),
+              _buildSectionHeader('Debug'),
+              const SizedBox(height: 8),
+              _buildToggleTile(
+                icon: Icons.workspace_premium_rounded,
+                iconColor: AppColors.proGold,
+                title: 'PRO Mode',
+                subtitle: 'Toggle premium features for testing',
+                value: ref.watch(debugPremiumProvider),
+                onChanged: (_) =>
+                    ref.read(debugPremiumProvider.notifier).toggle(),
+              ),
+              _buildInfoTile(
+                icon: Icons.refresh_rounded,
+                title: 'Reset Onboarding',
+                onTap: () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool(kOnboardingDoneKey, false);
+                  if (context.mounted) {
+                    context.go('/onboarding');
+                  }
+                },
+              ),
+            ],
+
             const SizedBox(height: 32),
           ],
         ),
@@ -233,6 +275,136 @@ class SettingsScreen extends ConsumerWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── 캘리브레이션 섹션 ───
+
+  Widget _buildCalibrationSection(WidgetRef ref, double offset) {
+    final Color trackColor;
+    if (offset < 0) {
+      trackColor = AppColors.accent;
+    } else if (offset > 0) {
+      trackColor = AppColors.levelLoud;
+    } else {
+      trackColor = AppColors.levelQuiet;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.tune_rounded, size: 22, color: trackColor),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Microphone Offset',
+                      style: AppTextStyles.body.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Adjust if readings seem too high or low',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '${offset >= 0 ? '+' : ''}${offset.toStringAsFixed(1)} dB',
+                style: AppTextStyles.body.copyWith(
+                  color: trackColor,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SliderTheme(
+            data: SliderThemeData(
+              activeTrackColor: trackColor,
+              inactiveTrackColor: trackColor.withValues(alpha: 0.2),
+              thumbColor: trackColor,
+              overlayColor: trackColor.withValues(alpha: 0.12),
+              trackHeight: 4,
+            ),
+            child: Slider(
+              value: offset,
+              min: -10.0,
+              max: 10.0,
+              divisions: 200,
+              onChanged: (value) {
+                ref
+                    .read(calibrationOffsetProvider.notifier)
+                    .setOffset(double.parse(value.toStringAsFixed(1)));
+              },
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '-10 dB',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textTertiary,
+                  fontSize: 10,
+                ),
+              ),
+              if (offset != 0.0)
+                GestureDetector(
+                  onTap: () => ref
+                      .read(calibrationOffsetProvider.notifier)
+                      .setOffset(0.0),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceLight,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Reset to Default',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ),
+              Text(
+                '+10 dB',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textTertiary,
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'This is not a certified measurement device. Values are approximate.',
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.textTertiary,
+              fontSize: 10,
             ),
           ),
         ],

@@ -1,12 +1,17 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soundsense/shared/utils/haptic_utils.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:soundsense/core/platform/platform_providers.dart'
+    show kWebMockLatitude, kWebMockLongitude;
 import 'package:soundsense/core/database/measurement_session.dart';
 import 'package:soundsense/core/database/session_repository.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
 import 'package:soundsense/core/permissions/location_permission.dart';
 import 'package:soundsense/features/history/providers/history_provider.dart';
+import 'package:soundsense/features/map/providers/map_provider.dart';
 import 'package:soundsense/shared/constants/db_levels.dart';
 
 /// 위치 태그 옵션
@@ -47,6 +52,7 @@ class _SaveSessionSheetState extends ConsumerState<SaveSessionSheet> {
   bool _isMemoExpanded = false;  // 메모: 접힘 상태로 시작
   bool _isFetchingLocation = false;
   bool _isSaving = false;
+  bool _isSaved = false;
 
   // 현재 위치 정보 (가져온 후 저장)
   double? _latitude;
@@ -462,6 +468,18 @@ class _SaveSessionSheetState extends ConsumerState<SaveSessionSheet> {
   Future<void> _fetchCurrentLocation() async {
     setState(() => _isFetchingLocation = true);
 
+    // 웹: 서울시청 고정 좌표
+    if (kIsWeb) {
+      if (mounted) {
+        setState(() {
+          _latitude = kWebMockLatitude;
+          _longitude = kWebMockLongitude;
+          _isFetchingLocation = false;
+        });
+      }
+      return;
+    }
+
     try {
       // 위치 권한 확인 및 요청
       final locPermission = ref.read(locationPermissionProvider);
@@ -569,33 +587,49 @@ class _SaveSessionSheetState extends ConsumerState<SaveSessionSheet> {
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
-        onPressed: _isSaving ? null : _onSave,
+        onPressed: (_isSaving || _isSaved) ? null : _onSave,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
+          backgroundColor:
+              _isSaved ? AppColors.success : AppColors.primary,
           foregroundColor: AppColors.textPrimary,
-          disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
+          disabledBackgroundColor: _isSaved
+              ? AppColors.success
+              : AppColors.primary.withValues(alpha: 0.5),
+          disabledForegroundColor: AppColors.textPrimary,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
           elevation: 4,
           shadowColor: AppColors.primary.withValues(alpha: 0.4),
         ),
-        child: _isSaving
-            ? const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: AppColors.textPrimary,
-                ),
-              )
-            : Text(
-                '💾 저장하기',
-                style: AppTextStyles.levelLabel.copyWith(
-                  color: AppColors.textPrimary,
-                  fontSize: 18,
-                ),
-              ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          child: _isSaved
+              ? const Icon(
+                  Icons.check_circle_rounded,
+                  key: ValueKey('saved'),
+                  size: 28,
+                  color: Colors.white,
+                )
+              : _isSaving
+                  ? const SizedBox(
+                      key: ValueKey('saving'),
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: AppColors.textPrimary,
+                      ),
+                    )
+                  : Text(
+                      '\u{1F4BE} 저장하기',
+                      key: const ValueKey('save'),
+                      style: AppTextStyles.levelLabel.copyWith(
+                        color: AppColors.textPrimary,
+                        fontSize: 18,
+                      ),
+                    ),
+        ),
       ),
     );
   }
@@ -606,7 +640,10 @@ class _SaveSessionSheetState extends ConsumerState<SaveSessionSheet> {
       width: double.infinity,
       height: 40,
       child: TextButton(
-        onPressed: () => Navigator.of(context).pop(false),
+        onPressed: () {
+          HapticUtils.light();
+          Navigator.of(context).pop(false);
+        },
         child: Text(
           '저장 안 함',
           style: AppTextStyles.caption.copyWith(
@@ -665,13 +702,23 @@ class _SaveSessionSheetState extends ConsumerState<SaveSessionSheet> {
       debugPrint('💾 uploadToFirestore 호출');
       await repo.uploadToFirestore(session);
 
-      // 히스토리 Provider 새로고침
+      // 히스토리 + 지도 Provider 새로고침
       ref.invalidate(sessionListProvider);
       ref.invalidate(weeklyChartProvider);
+      ref.invalidate(mapSessionsProvider);
+      ref.invalidate(mapMarkersProvider);
+      ref.invalidate(firestoreReportsProvider);
 
       if (mounted) {
-        setState(() => _isSaving = false);
-        Navigator.of(context).pop(true);
+        HapticUtils.success();
+        setState(() {
+          _isSaving = false;
+          _isSaved = true;
+        });
+        // 체크 아이콘 애니메이션 후 닫기
+        await Future.delayed(const Duration(milliseconds: 600));
+        if (mounted) Navigator.of(context).pop(true);
+        return;
       }
     } catch (e) {
       debugPrint('❌ 세션 저장 실패: $e');

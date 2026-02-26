@@ -4,16 +4,25 @@ import 'package:soundsense/core/database/measurement_session.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
 import 'package:soundsense/shared/constants/db_levels.dart';
+import 'package:soundsense/shared/utils/haptic_utils.dart';
 
 /// 세션 카드 위젯
 /// 레벨 색상 좌측 바 + 날짜/장소 + 평균 dB + 최대 dB + 측정 시간
-class SessionCard extends StatelessWidget {
+class SessionCard extends StatefulWidget {
   const SessionCard({super.key, required this.session});
 
   final MeasurementSession session;
 
   @override
+  State<SessionCard> createState() => _SessionCardState();
+}
+
+class _SessionCardState extends State<SessionCard> {
+  bool _isPressed = false;
+
+  @override
   Widget build(BuildContext context) {
+    final session = widget.session;
     final level = DbLevel.fromDb(session.avgDb);
     final duration = session.durationSec;
     final minutes = duration ~/ 60;
@@ -27,8 +36,19 @@ class SessionCard extends StatelessWidget {
     final hourText =
         '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
-    return GestureDetector(
-      onTap: () => context.go('/history/${session.id}'),
+    return Listener(
+      onPointerDown: (_) => setState(() => _isPressed = true),
+      onPointerUp: (_) => setState(() => _isPressed = false),
+      onPointerCancel: (_) => setState(() => _isPressed = false),
+      child: AnimatedScale(
+        scale: _isPressed ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
+        child: GestureDetector(
+      onTap: () {
+        HapticUtils.light();
+        context.go('/history/${session.id}');
+      },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
@@ -179,6 +199,8 @@ class SessionCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    ),
       ),
     );
   }

@@ -3,15 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
 
 /// 반원형 dB 게이지 위젯
-/// 0~120 dB 범위, 레벨 색상 아크 + 바늘 + 글로우 효과
+/// 0~120 dB 범위, 레벨 색상 아크 + 바늘 + 피크 홀드 바늘 + 글로우 효과
 class DbGaugeWidget extends StatefulWidget {
   const DbGaugeWidget({
     super.key,
     required this.currentDb,
+    this.peakDb = 0,
     this.maxDb = 120.0,
   });
 
   final double currentDb;
+  final double peakDb;
   final double maxDb;
 
   @override
@@ -19,10 +21,15 @@ class DbGaugeWidget extends StatefulWidget {
 }
 
 class _DbGaugeWidgetState extends State<DbGaugeWidget>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _controller;
   late Animation<double> _dbAnimation;
   double _previousDb = 0;
+
+  // 피크 홀드 애니메이션
+  late final AnimationController _peakController;
+  double _displayPeak = 0;
+  double _peakDecayFrom = 0;
 
   @override
   void initState() {
@@ -32,14 +39,25 @@ class _DbGaugeWidgetState extends State<DbGaugeWidget>
       duration: const Duration(milliseconds: 300),
     );
     _dbAnimation = AlwaysStoppedAnimation(widget.currentDb);
+
+    _peakController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
+    _peakController.addListener(() {
+      // 피크에서 현재값으로 서서히 decay
+      _displayPeak = _peakDecayFrom +
+          (widget.currentDb - _peakDecayFrom) * _peakController.value;
+    });
   }
 
   @override
   void didUpdateWidget(DbGaugeWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    // dB 바늘 애니메이션
     if (oldWidget.currentDb != widget.currentDb) {
       _previousDb = oldWidget.currentDb;
-      // 스프링 커브로 바늘 움직임
       _dbAnimation = Tween<double>(
         begin: _previousDb,
         end: widget.currentDb,
@@ -49,23 +67,32 @@ class _DbGaugeWidgetState extends State<DbGaugeWidget>
       ));
       _controller.forward(from: 0);
     }
+
+    // 피크 홀드: 새 피크 감지 시 리셋 후 decay 시작
+    if (widget.peakDb > _displayPeak) {
+      _displayPeak = widget.peakDb;
+      _peakDecayFrom = widget.peakDb;
+      _peakController.forward(from: 0);
+    }
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _peakController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
+      animation: Listenable.merge([_controller, _peakController]),
       builder: (context, child) {
         return CustomPaint(
-          size: const Size(280, 168),
+          size: const Size(280, 160),
           painter: _GaugePainter(
             currentDb: _dbAnimation.value,
+            peakDb: _displayPeak,
             maxDb: widget.maxDb,
             levelColor: AppColors.levelColor(_dbAnimation.value),
           ),
@@ -78,17 +105,19 @@ class _DbGaugeWidgetState extends State<DbGaugeWidget>
 class _GaugePainter extends CustomPainter {
   _GaugePainter({
     required this.currentDb,
+    required this.peakDb,
     required this.maxDb,
     required this.levelColor,
   });
 
   final double currentDb;
+  final double peakDb;
   final double maxDb;
   final Color levelColor;
 
   // 게이지 각도 범위: 180도 (좌 → 우 반원)
-  static const _startAngle = math.pi;      // 180° (왼쪽)
-  static const _sweepAngle = math.pi;      // 180° 전체
+  static const _startAngle = math.pi; // 180° (왼쪽)
+  static const _sweepAngle = math.pi; // 180° 전체
   static const _trackWidth = 12.0;
   static const _arcWidth = 12.0;
 
@@ -132,7 +161,8 @@ class _GaugePainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = _arcWidth
         ..strokeCap = StrokeCap.round;
-      canvas.drawArc(rect, _startAngle, _sweepAngle * ratio, false, arcPaint);
+      canvas.drawArc(
+          rect, _startAngle, _sweepAngle * ratio, false, arcPaint);
     }
 
     // ─── 4. 눈금 마크 (0, 30, 60, 90, 120) ───
@@ -166,13 +196,34 @@ class _GaugePainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       )..layout();
       final labelOffset = Offset(
-        center.dx + (radius + 20) * math.cos(angle) - textPainter.width / 2,
-        center.dy + (radius + 20) * math.sin(angle) - textPainter.height / 2,
+        center.dx +
+            (radius + 20) * math.cos(angle) -
+            textPainter.width / 2,
+        center.dy +
+            (radius + 20) * math.sin(angle) -
+            textPainter.height / 2,
       );
       textPainter.paint(canvas, labelOffset);
     }
 
-    // ─── 5. 바늘 ───
+    // ─── 5. 피크 홀드 바늘 (얇은 빨간 선) ───
+    final peakClamped = peakDb.clamp(0.0, maxDb);
+    if (peakClamped > 0) {
+      final peakRatio = peakClamped / maxDb;
+      final peakAngle = _startAngle + _sweepAngle * peakRatio;
+      final peakLength = radius - 24;
+      final peakTip = Offset(
+        center.dx + peakLength * math.cos(peakAngle),
+        center.dy + peakLength * math.sin(peakAngle),
+      );
+      final peakPaint = Paint()
+        ..color = AppColors.levelDanger.withValues(alpha: 0.6)
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(center, peakTip, peakPaint);
+    }
+
+    // ─── 6. 메인 바늘 ───
     final needleAngle = _startAngle + _sweepAngle * ratio;
     final needleLength = radius - 24;
 
@@ -214,5 +265,6 @@ class _GaugePainter extends CustomPainter {
   @override
   bool shouldRepaint(_GaugePainter oldDelegate) =>
       oldDelegate.currentDb != currentDb ||
+      oldDelegate.peakDb != peakDb ||
       oldDelegate.levelColor != levelColor;
 }

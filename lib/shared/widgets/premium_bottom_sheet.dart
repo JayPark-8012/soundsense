@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
+import 'package:soundsense/shared/utils/haptic_utils.dart';
 
 /// PRO 업그레이드 유도 바텀시트
 /// 골드 컬러 포인트 + 다크 배경
@@ -193,6 +194,7 @@ class PremiumBottomSheet extends StatelessWidget {
       height: 56,
       child: ElevatedButton(
         onPressed: () {
+          HapticUtils.medium();
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

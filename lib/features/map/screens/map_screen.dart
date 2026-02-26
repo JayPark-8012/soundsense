@@ -1,11 +1,14 @@
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:soundsense/core/database/measurement_session.dart';
 import 'package:soundsense/core/database/session_repository.dart';
 import 'package:soundsense/core/permissions/location_permission.dart';
+import 'package:soundsense/core/platform/web_map_placeholder.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
 import 'package:soundsense/features/map/providers/map_provider.dart';
@@ -27,6 +30,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   GoogleMapController? _mapController;
   String? _darkMapStyle;
   bool _didFocusSession = false;
+  bool _isLocating = false;
 
   /// 서울 시청 기본 좌표 (위치 없을 때 초기값)
   static const _defaultPosition = LatLng(37.5665, 126.9780);
@@ -96,7 +100,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           Positioned(
             bottom: 24,
             right: 16,
-            child: _buildMyLocationButton(currentLocAsync),
+            child: _buildMyLocationButton(),
           ),
         ],
       ),
@@ -108,6 +112,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     AsyncValue<List<MarkerData>> markersAsync,
     AsyncValue<LatLng?> currentLocAsync,
   ) {
+    // 웹: Google Maps 대신 Placeholder
+    if (kIsWeb) {
+      final sessions = markersAsync.valueOrNull
+              ?.map((m) => m.session)
+              .toList() ??
+          [];
+      return WebMapPlaceholder(sessions: sessions);
+    }
+
     // 초기 카메라 위치: 현재 위치 or 기본
     final initialTarget = currentLocAsync.valueOrNull ?? _defaultPosition;
 
@@ -115,8 +128,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final markers = <Marker>{};
     if (markersAsync.hasValue) {
       for (final data in markersAsync.value!) {
+        // Firestore-only 세션은 firestoreId, 로컬 세션은 session.id 사용
+        final id = data.session.firestoreId ?? 'local_${data.session.id}';
         markers.add(Marker(
-          markerId: MarkerId('session_${data.session.id}'),
+          markerId: MarkerId(id),
           position: data.position,
           icon: data.icon,
           anchor: const Offset(0.5, 0.5),
@@ -229,43 +244,58 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   /// 빈 상태 오버레이 — 위치 있는 세션 없을 때
   Widget _buildEmptyOverlay() {
     return Positioned.fill(
-      child: IgnorePointer(
-        child: Center(
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 48),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            decoration: BoxDecoration(
-              color: AppColors.surface.withValues(alpha: 0.92),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: AppColors.divider,
+      child: Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          decoration: BoxDecoration(
+            color: AppColors.surface.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppColors.divider,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '\u{1F5FA}\u{FE0F}',
+                style: TextStyle(fontSize: 40),
               ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  '\u{1F5FA}\u{FE0F}',
-                  style: TextStyle(fontSize: 40),
+              const SizedBox(height: 12),
+              Text(
+                'No noise data yet',
+                style: AppTextStyles.cardTitle.copyWith(
+                  color: AppColors.textPrimary,
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  'No noise data yet',
-                  style: AppTextStyles.cardTitle.copyWith(
-                    color: AppColors.textPrimary,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Measure noise and save with location\nto see markers on the map',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.body.copyWith(
+                  color: AppColors.textTertiary,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 44,
+                child: ElevatedButton.icon(
+                  onPressed: () => context.go('/'),
+                  icon: const Icon(Icons.mic, size: 18),
+                  label: const Text('Go Measure'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    elevation: 0,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Measure noise and save with location\nto see markers on the map',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.body.copyWith(
-                    color: AppColors.textTertiary,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -377,32 +407,120 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       ..isSharedToMap = false;
   }
 
-  /// 현재 위치 이동 버튼
-  Widget _buildMyLocationButton(AsyncValue<LatLng?> currentLocAsync) {
-    return FloatingActionButton.small(
-      heroTag: 'map_my_location',
-      backgroundColor: AppColors.surface,
-      foregroundColor: AppColors.accent,
-      elevation: 4,
-      onPressed: () async {
-        // 권한 없으면 요청
-        final perm = ref.read(locationPermissionProvider);
-        if (perm != LocationPermissionState.granted) {
-          final result =
-              await ref.read(locationPermissionProvider.notifier).request();
-          if (result != LocationPermissionState.granted) return;
-        }
-
-        // 위치 새로고침
-        ref.invalidate(currentLocationProvider);
-        final loc = await ref.read(currentLocationProvider.future);
-        if (loc != null && _mapController != null) {
-          _mapController!.animateCamera(
-            CameraUpdate.newLatLngZoom(loc, 16),
-          );
-        }
-      },
-      child: const Icon(Icons.my_location_rounded, size: 20),
+  /// 현재 위치 이동 버튼 (FAB 사이즈, accent 배경)
+  Widget _buildMyLocationButton() {
+    return SizedBox(
+      width: 56,
+      height: 56,
+      child: FloatingActionButton(
+        heroTag: 'map_my_location',
+        backgroundColor: AppColors.accent,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        onPressed: _isLocating ? null : _moveToMyLocation,
+        child: _isLocating
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Colors.white,
+                ),
+              )
+            : const Icon(Icons.my_location, size: 24),
+      ),
     );
+  }
+
+  /// 현재 위치로 카메라 이동 — 권한 체크 → 위치 가져오기 → 카메라 이동
+  Future<void> _moveToMyLocation() async {
+    // 1. 위치 권한 확인
+    var perm = ref.read(locationPermissionProvider);
+
+    if (perm == LocationPermissionState.unknown ||
+        perm == LocationPermissionState.denied) {
+      perm = await ref.read(locationPermissionProvider.notifier).request();
+    }
+
+    // 영구 거부 → 설정 앱 안내
+    if (perm == LocationPermissionState.permanentlyDenied) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Location permission denied. Please enable in Settings.'),
+            backgroundColor: AppColors.warning,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            action: SnackBarAction(
+              label: 'Settings',
+              textColor: Colors.white,
+              onPressed: () {
+                ref.read(locationPermissionProvider.notifier).openSettings();
+              },
+            ),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (perm != LocationPermissionState.granted) return;
+
+    // 2. 로딩 시작
+    setState(() => _isLocating = true);
+
+    try {
+      LatLng? loc;
+
+      // 3. 현재 위치 가져오기 (10초 타임아웃)
+      try {
+        final position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 10),
+          ),
+        );
+        loc = LatLng(position.latitude, position.longitude);
+      } catch (e) {
+        debugPrint('📍 getCurrentPosition 실패, lastKnown 시도: $e');
+        // 4. 폴백: 마지막 알려진 위치
+        try {
+          final last = await Geolocator.getLastKnownPosition();
+          if (last != null) {
+            loc = LatLng(last.latitude, last.longitude);
+          }
+        } catch (e2) {
+          debugPrint('📍 getLastKnownPosition도 실패: $e2');
+        }
+      }
+
+      // 5. 카메라 이동 또는 에러 SnackBar
+      if (loc != null && _mapController != null && mounted) {
+        _mapController!.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(target: loc, zoom: 16.0),
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Unable to get current location'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLocating = false);
+      }
+    }
   }
 }

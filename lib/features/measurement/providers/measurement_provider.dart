@@ -5,6 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:noise_meter/noise_meter.dart';
 import 'package:soundsense/shared/constants/app_constants.dart';
 import 'package:soundsense/shared/constants/db_levels.dart';
+import 'package:soundsense/shared/providers/calibration_provider.dart';
+
+// ─── 응답 속도 모드 ───
+
+enum ResponseMode {
+  fast, // 200ms 간격
+  slow, // 500ms 간격 + 이동평균 강화
+}
 
 // ─── 상태 정의 ───
 
@@ -25,6 +33,7 @@ class MeasurementActive extends MeasurementState {
     required this.minDb,
     required this.maxDb,
     required this.avgDb,
+    required this.peakDb,
     required this.level,
     required this.startedAt,
     required this.sampleCount,
@@ -35,6 +44,7 @@ class MeasurementActive extends MeasurementState {
   final double minDb;
   final double maxDb;
   final double avgDb;
+  final double peakDb;
   final DbLevel level;
   final DateTime startedAt;
   final int sampleCount;
@@ -47,12 +57,14 @@ class MeasurementActive extends MeasurementState {
     final newCount = sampleCount + 1;
     // 누적 이동 평균 계산
     final newAvg = avgDb + (newDb - avgDb) / newCount;
+    final newPeak = math.max(peakDb, newDb);
 
     return MeasurementActive(
       currentDb: newDb,
       minDb: newMin,
       maxDb: newMax,
       avgDb: newAvg,
+      peakDb: newPeak,
       level: DbLevel.fromDb(newDb),
       startedAt: startedAt,
       sampleCount: newCount,
@@ -92,7 +104,14 @@ class MeasurementError extends MeasurementState {
 
 final measurementProvider =
     StateNotifierProvider<MeasurementNotifier, MeasurementState>(
-  (ref) => MeasurementNotifier(),
+  (ref) {
+    final notifier = MeasurementNotifier();
+    // 캘리브레이션 오프셋 동기화
+    ref.listen<double>(calibrationOffsetProvider, (_, next) {
+      notifier.calibrationOffset = next;
+    }, fireImmediately: true);
+    return notifier;
+  },
 );
 
 // ─── Notifier ───
@@ -102,6 +121,26 @@ class MeasurementNotifier extends StateNotifier<MeasurementState> {
 
   final NoiseMeter _noiseMeter = NoiseMeter();
   StreamSubscription<NoiseReading>? _subscription;
+
+  /// 캘리브레이션 오프셋 (dB) — Provider에서 주입
+  double calibrationOffset = 0.0;
+
+  /// 응답 속도 모드
+  ResponseMode _responseMode = ResponseMode.fast;
+  ResponseMode get responseMode => _responseMode;
+
+  // Slow 모드용 이동평균 버퍼
+  final List<double> _slowBuffer = [];
+  static const _slowBufferSize = 5;
+  Timer? _slowTimer;
+
+  /// 응답 속도 모드 전환
+  void setResponseMode(ResponseMode mode) {
+    _responseMode = mode;
+    _slowBuffer.clear();
+    _slowTimer?.cancel();
+    _slowTimer = null;
+  }
 
   /// 측정 시작
   Future<void> start() async {
@@ -117,7 +156,6 @@ class MeasurementNotifier extends StateNotifier<MeasurementState> {
       _subscription = _noiseMeter.noise.listen(
         (NoiseReading reading) {
           _onData(reading, resumeState);
-          // 첫 데이터 수신 후 resumeState 더 이상 불필요
         },
         onError: (Object error) {
           state = MeasurementError(message: error.toString());
@@ -134,6 +172,9 @@ class MeasurementNotifier extends StateNotifier<MeasurementState> {
   void pause() {
     _subscription?.cancel();
     _subscription = null;
+    _slowTimer?.cancel();
+    _slowTimer = null;
+    _slowBuffer.clear();
 
     final current = state;
     if (current is MeasurementActive) {
@@ -153,14 +194,33 @@ class MeasurementNotifier extends StateNotifier<MeasurementState> {
   void reset() {
     _subscription?.cancel();
     _subscription = null;
+    _slowTimer?.cancel();
+    _slowTimer = null;
+    _slowBuffer.clear();
     state = const MeasurementIdle();
   }
 
   /// 마이크 스트림 데이터 수신 콜백
   void _onData(NoiseReading reading, MeasurementPaused? resumeFrom) {
-    // dB 값 클램핑 (음수 방지, 최대 130)
-    final db = reading.meanDecibel.clamp(0.0, 130.0);
+    // dB 값 + 캘리브레이션 오프셋 적용 후 클램핑
+    final rawDb = (reading.meanDecibel + calibrationOffset).clamp(0.0, 130.0);
 
+    if (_responseMode == ResponseMode.slow) {
+      // Slow 모드: 버퍼에 쌓고 이동평균 적용
+      _slowBuffer.add(rawDb);
+      if (_slowBuffer.length > _slowBufferSize) {
+        _slowBuffer.removeAt(0);
+      }
+      final db = _slowBuffer.reduce((a, b) => a + b) / _slowBuffer.length;
+      _applyDb(db, resumeFrom);
+    } else {
+      // Fast 모드: 즉시 적용
+      _applyDb(rawDb, resumeFrom);
+    }
+  }
+
+  /// dB 값을 상태에 반영
+  void _applyDb(double db, MeasurementPaused? resumeFrom) {
     final current = state;
 
     if (current is MeasurementActive) {
@@ -174,7 +234,9 @@ class MeasurementNotifier extends StateNotifier<MeasurementState> {
         currentDb: db,
         minDb: math.min(resumeFrom.minDb, db),
         maxDb: math.max(resumeFrom.maxDb, db),
-        avgDb: resumeFrom.avgDb + (db - resumeFrom.avgDb) / (resumeFrom.sampleCount + 1),
+        avgDb: resumeFrom.avgDb +
+            (db - resumeFrom.avgDb) / (resumeFrom.sampleCount + 1),
+        peakDb: db,
         level: DbLevel.fromDb(db),
         startedAt: resumeFrom.startedAt,
         sampleCount: resumeFrom.sampleCount + 1,
@@ -187,6 +249,7 @@ class MeasurementNotifier extends StateNotifier<MeasurementState> {
         minDb: db,
         maxDb: db,
         avgDb: db,
+        peakDb: db,
         level: DbLevel.fromDb(db),
         startedAt: DateTime.now(),
         sampleCount: 1,
@@ -207,6 +270,7 @@ class MeasurementNotifier extends StateNotifier<MeasurementState> {
   @override
   void dispose() {
     _subscription?.cancel();
+    _slowTimer?.cancel();
     super.dispose();
   }
 }

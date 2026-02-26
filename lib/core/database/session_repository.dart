@@ -18,14 +18,14 @@ final sessionRepositoryProvider = Provider<SessionRepository>((ref) {
 /// 세션 CRUD 레포지토리
 class SessionRepository {
   SessionRepository(this._isar, this._ref);
-  final Isar _isar;
-  final Ref _ref;
+  final Isar? _isar; // nullable — 웹에서는 null (WebSessionRepository 사용)
+  final Ref? _ref; // nullable — 웹 WebSessionRepository에서는 null
 
   /// 세션 저장 — 성공 시 저장된 세션 ID 반환
   Future<int> saveSession(MeasurementSession session) async {
     try {
-      final id = await _isar.writeTxn(() {
-        return _isar.measurementSessions.put(session);
+      final id = await _isar!.writeTxn(() {
+        return _isar!.measurementSessions.put(session);
       });
       debugPrint('📊 세션 저장 완료 (id: $id)');
       return id;
@@ -41,13 +41,13 @@ class SessionRepository {
     try {
       if (limitDays != null) {
         final cutoff = DateTime.now().subtract(Duration(days: limitDays));
-        return _isar.measurementSessions
+        return _isar!.measurementSessions
             .filter()
             .startedAtGreaterThan(cutoff)
             .sortByStartedAtDesc()
             .findAll();
       }
-      return _isar.measurementSessions
+      return _isar!.measurementSessions
           .where()
           .sortByStartedAtDesc()
           .findAll();
@@ -60,7 +60,7 @@ class SessionRepository {
   /// 세션 단건 조회
   Future<MeasurementSession?> getSessionById(int id) async {
     try {
-      return _isar.measurementSessions.get(id);
+      return _isar!.measurementSessions.get(id);
     } catch (e) {
       debugPrint('❌ 세션 조회 실패 (id: $id): $e');
       rethrow;
@@ -70,8 +70,8 @@ class SessionRepository {
   /// 세션 삭제
   Future<bool> deleteSession(int id) async {
     try {
-      final deleted = await _isar.writeTxn(() {
-        return _isar.measurementSessions.delete(id);
+      final deleted = await _isar!.writeTxn(() {
+        return _isar!.measurementSessions.delete(id);
       });
       debugPrint('🗑️ 세션 삭제 ${deleted ? "완료" : "실패"} (id: $id)');
       return deleted;
@@ -85,6 +85,9 @@ class SessionRepository {
   /// 조건: isSharedToMap == true && latitude != null
   /// 실패해도 로컬 저장에 영향 없음 (try-catch)
   Future<void> uploadToFirestore(MeasurementSession session) async {
+    // 웹에서는 Firestore 업로드 스킵
+    if (kIsWeb) return;
+
     debugPrint('🔥 uploadToFirestore 시작');
     debugPrint('🔥 조건 체크: isSharedToMap=${session.isSharedToMap}, lat=${session.latitude}');
 
@@ -95,8 +98,14 @@ class SessionRepository {
     }
 
     try {
-      // deviceId 가져오기
-      final deviceId = _ref.read(deviceIdProvider);
+      // deviceId 가져오기 — main.dart에서 override 안 됐으면 실패
+      late final String deviceId;
+      try {
+        deviceId = _ref!.read(deviceIdProvider);
+      } catch (e) {
+        debugPrint('🔥 ❌ deviceIdProvider 읽기 실패 (익명 인증 미완료?): $e');
+        return;
+      }
       debugPrint('🔥 deviceId=$deviceId');
 
       // 앱 버전 가져오기
@@ -107,7 +116,7 @@ class SessionRepository {
       final level = DbLevel.fromDb(session.avgDb);
 
       // Firestore 컬렉션 레퍼런스
-      final collection = _ref.read(noiseReportsRef);
+      final collection = _ref!.read(noiseReportsRef);
 
       debugPrint('🔥 Firestore 업로드 시도 (avgDb=${session.avgDb}, level=${level.name})');
 
@@ -127,8 +136,8 @@ class SessionRepository {
 
       // Firestore 문서 ID를 로컬 세션에 저장 (삭제 요청용)
       session.firestoreId = docRef.id;
-      await _isar.writeTxn(() {
-        return _isar.measurementSessions.put(session);
+      await _isar!.writeTxn(() {
+        return _isar!.measurementSessions.put(session);
       });
 
       debugPrint('🔥 firestoreId 로컬 저장 완료');

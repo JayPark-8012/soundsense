@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
 import 'package:soundsense/features/history/providers/history_provider.dart';
@@ -7,7 +8,7 @@ import 'package:soundsense/features/history/widgets/session_card.dart';
 import 'package:soundsense/features/history/widgets/weekly_bar_chart.dart';
 import 'package:soundsense/shared/constants/app_constants.dart';
 import 'package:soundsense/shared/providers/premium_provider.dart';
-import 'package:soundsense/shared/widgets/premium_guard.dart';
+import 'package:soundsense/shared/widgets/premium_bottom_sheet.dart';
 
 /// 히스토리 화면 — 탭 2
 /// 주간 차트 + 기간 필터 + 세션 카드 목록
@@ -62,24 +63,66 @@ class HistoryScreen extends ConsumerWidget {
                 if (sessions.isEmpty) {
                   return SliverFillRemaining(
                     hasScrollBody: false,
-                    child: _buildEmptyState(),
+                    child: _buildEmptyState(context),
                   );
                 }
 
                 return SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   sliver: SliverList.builder(
-                    itemCount: sessions.length + 1,
+                    itemCount: sessions.length,
                     itemBuilder: (context, index) {
-                      // 마지막: PremiumGuard 잠금 카드
-                      if (index == sessions.length) {
-                        return PremiumGuard(
-                          featureName: 'Unlimited History',
-                          lockedChild: _buildHistoryLockedCard(),
-                          child: const SizedBox.shrink(),
-                        );
+                      final session = sessions[index];
+                      final isOld = DateTime.now()
+                              .difference(session.startedAt)
+                              .inDays >
+                          AppConstants.freeHistoryLimitDays;
+
+                      // 7일 이내 또는 PRO → 정상 표시
+                      if (!isOld) {
+                        return SessionCard(session: session);
                       }
-                      return SessionCard(session: sessions[index]);
+
+                      // 7일 이후: 흐리게 + 🔒 + 탭 분기
+                      return GestureDetector(
+                        onTap: () {
+                          if (isPremium) {
+                            context.go('/history/${session.id}');
+                          } else {
+                            PremiumBottomSheet.show(
+                              context,
+                              featureName: 'Full History',
+                            );
+                          }
+                        },
+                        child: AbsorbPointer(
+                          child: Opacity(
+                            opacity: 0.85,
+                            child: Stack(
+                              children: [
+                                SessionCard(session: session),
+                                Positioned(
+                                  top: 10,
+                                  right: 26,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surface,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.lock_outline_rounded,
+                                      size: 12,
+                                      color: AppColors.proGold
+                                          .withValues(alpha: 0.7),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
                     },
                   ),
                 );
@@ -142,7 +185,6 @@ class HistoryScreen extends ConsumerWidget {
           label: 'This Month',
           filter: HistoryFilter.thisMonth,
           isSelected: current == HistoryFilter.thisMonth,
-          locked: !isPremium,
         ),
       ],
     );
@@ -195,7 +237,7 @@ class HistoryScreen extends ConsumerWidget {
   }
 
   /// 빈 상태 UI
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -222,6 +264,24 @@ class HistoryScreen extends ConsumerWidget {
               ),
               textAlign: TextAlign.center,
             ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: 200,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: () => context.go('/'),
+                icon: const Icon(Icons.mic, size: 18),
+                label: const Text('Start Measuring'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.accent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -246,57 +306,4 @@ class HistoryScreen extends ConsumerWidget {
     );
   }
 
-  /// PRO 잠금 카드 — 7일 이전 기록 잠금 (PremiumGuard lockedChild)
-  Widget _buildHistoryLockedCard() {
-    return Opacity(
-      opacity: 0.85,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppColors.proGold.withValues(alpha: 0.3),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.lock_outline_rounded,
-              size: 28,
-              color: AppColors.proGold.withValues(alpha: 0.7),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Records before ${AppConstants.freeHistoryLimitDays} days',
-                    style: AppTextStyles.body.copyWith(
-                      color: AppColors.proGold,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Unlock with PRO',
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.textTertiary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              size: 20,
-              color: AppColors.proGold.withValues(alpha: 0.5),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

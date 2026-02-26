@@ -1,15 +1,25 @@
+import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gal/gal.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:soundsense/core/database/measurement_session.dart';
 import 'package:soundsense/core/database/session_repository.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
+import 'package:soundsense/shared/constants/app_constants.dart';
 import 'package:soundsense/shared/constants/db_levels.dart';
+import 'package:soundsense/shared/providers/premium_provider.dart';
+import 'package:soundsense/shared/widgets/noise_card_generator.dart';
+import 'package:soundsense/shared/widgets/premium_bottom_sheet.dart';
 import 'package:soundsense/shared/widgets/premium_guard.dart';
 
 /// 세션 상세 Provider — ID로 세션 조회
@@ -79,6 +89,11 @@ class SessionDetailScreen extends ConsumerWidget {
     WidgetRef ref,
     MeasurementSession session,
   ) {
+    final isPremium = ref.watch(isPremiumProvider);
+    final isOld = DateTime.now().difference(session.startedAt).inDays >
+        AppConstants.freeHistoryLimitDays;
+    final isLocked = isOld && !isPremium;
+
     final level = DbLevel.fromDb(session.avgDb);
     final dt = session.startedAt;
     final dateText =
@@ -93,11 +108,58 @@ class SessionDetailScreen extends ConsumerWidget {
     // 앱바 제목: 장소명 우선, 없으면 날짜
     final appBarTitle = session.locationName ?? dateText;
 
+    // 본문 콘텐츠 (잠금/비잠금 공용)
+    final bodyContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildInfoHeader(dateText, timeText, durationText, level),
+        const SizedBox(height: 20),
+        _buildDbCards(session, level),
+        const SizedBox(height: 20),
+        _buildLevelEvaluation(level),
+        const SizedBox(height: 20),
+        _buildSafeExposureTime(session.avgDb),
+        const SizedBox(height: 20),
+        _buildDistributionDonut(session),
+        const SizedBox(height: 20),
+        _buildDistributionBar(session),
+        if (session.memo != null && session.memo!.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          _buildMemoSection(session.memo!),
+        ],
+        if (session.locationName != null ||
+            session.latitude != null) ...[
+          const SizedBox(height: 20),
+          _buildLocationSection(context, session),
+        ],
+        const SizedBox(height: 24),
+        PremiumGuard(
+          featureName: 'Timeline Chart',
+          lockedChild: _buildLockedTimelineChart(),
+          child: _buildTimelineChartPro(session),
+        ),
+        const SizedBox(height: 24),
+        PremiumGuard(
+          featureName: 'CSV Export',
+          lockedChild: _buildLockedCsvExport(),
+          child: _buildCsvExportPro(session),
+        ),
+        const SizedBox(height: 24),
+        _buildActionButtons(context, ref, session),
+      ],
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: Text(appBarTitle),
         centerTitle: true,
         actions: [
+          if (!isLocked)
+            IconButton(
+              onPressed: () => _onNoiseCard(context, ref, session),
+              icon: const Icon(Icons.style_outlined),
+              tooltip: 'Noise Card',
+            ),
           IconButton(
             onPressed: () => _onShare(session),
             icon: const Icon(Icons.share_outlined),
@@ -105,76 +167,112 @@ class SessionDetailScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ─── 날짜/시간 + 측정 시간 ───
-            _buildInfoHeader(dateText, timeText, durationText, level),
-
-            const SizedBox(height: 20),
-
-            // ─── AVG / MAX / MIN 카드 3개 ───
-            _buildDbCards(session, level),
-
-            const SizedBox(height: 20),
-
-            // ─── 레벨 평가 텍스트 ───
-            _buildLevelEvaluation(level),
-
-            const SizedBox(height: 20),
-
-            // ─── 청력 안전 시간 ───
-            _buildSafeExposureTime(session.avgDb),
-
-            const SizedBox(height: 20),
-
-            // ─── 소음 분포 도넛 차트 ───
-            _buildDistributionDonut(session),
-
-            const SizedBox(height: 20),
-
-            // ─── 소음 분포 바 (Distribution Bar) ───
-            _buildDistributionBar(session),
-
-            // ─── 메모 (있을 때만) ───
-            if (session.memo != null && session.memo!.isNotEmpty) ...[
-              const SizedBox(height: 20),
-              _buildMemoSection(session.memo!),
-            ],
-
-            // ─── 위치 (있을 때만) ───
-            if (session.locationName != null ||
-                session.latitude != null) ...[
-              const SizedBox(height: 20),
-              _buildLocationSection(context, session),
-            ],
-
-            const SizedBox(height: 24),
-
-            // ─── 시간대별 라인 차트 (PRO) ───
-            PremiumGuard(
-              featureName: 'Timeline Chart',
-              lockedChild: _buildLockedTimelineChart(),
-              child: _buildTimelineChartPro(session),
+      body: isLocked
+          ? Column(
+              children: [
+                // ─── PRO 배너 ───
+                _buildProBanner(context),
+                // ─── 블러 + 흐린 콘텐츠 ───
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => PremiumBottomSheet.show(
+                      context,
+                      featureName: 'Full History',
+                    ),
+                    child: ClipRect(
+                      child: ImageFiltered(
+                        imageFilter:
+                            ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+                        child: Opacity(
+                          opacity: 0.4,
+                          child: SingleChildScrollView(
+                            physics:
+                                const NeverScrollableScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(
+                                16, 16, 16, 32),
+                            child: bodyContent,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+              child: bodyContent,
             ),
+    );
+  }
 
-            const SizedBox(height: 24),
-
-            // ─── CSV 내보내기 (PRO) ───
-            PremiumGuard(
-              featureName: 'CSV Export',
-              lockedChild: _buildLockedCsvExport(),
-              child: _buildCsvExportPro(session),
-            ),
-
-            const SizedBox(height: 24),
-
-            // ─── Share / Delete 버튼 ───
-            _buildActionButtons(context, ref, session),
+  /// PRO 배너 — 무료 유저 + 7일 이후 세션
+  Widget _buildProBanner(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.proGold.withValues(alpha: 0.15),
+            AppColors.proGold.withValues(alpha: 0.05),
           ],
         ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.proGold.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('\u{1F451}', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              Text(
+                'PRO Feature',
+                style: AppTextStyles.cardTitle.copyWith(
+                  color: AppColors.proGold,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Unlock full history with PRO',
+            style: AppTextStyles.body.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => PremiumBottomSheet.show(
+                context,
+                featureName: 'Full History',
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.proGold,
+                foregroundColor: AppColors.background,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: Text(
+                'Start Free Trial',
+                style: AppTextStyles.body.copyWith(
+                  color: AppColors.background,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -987,6 +1085,219 @@ class SessionDetailScreen extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+
+  /// Noise Card 생성 + 미리보기
+  void _onNoiseCard(
+    BuildContext context,
+    WidgetRef ref,
+    MeasurementSession session,
+  ) async {
+    final isPremium = ref.read(isPremiumProvider);
+
+    // 로딩 표시
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      ),
+    );
+
+    try {
+      final bytes = await NoiseCardGenerator.generate(
+        session,
+        isPremium: isPremium,
+      );
+
+      if (!context.mounted) return;
+      Navigator.of(context).pop(); // 로딩 닫기
+
+      _showNoiseCardPreview(context, bytes);
+    } catch (e) {
+      if (!context.mounted) return;
+      Navigator.of(context).pop(); // 로딩 닫기
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Failed to generate card'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
+  }
+
+  /// Noise Card 미리보기 다이얼로그
+  void _showNoiseCardPreview(BuildContext context, Uint8List bytes) {
+    bool isSaving = false;
+    bool isSharing = false;
+
+    showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          insetPadding: const EdgeInsets.all(24),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 카드 미리보기
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.5,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.memory(bytes, fit: BoxFit.contain),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 💾 Save to Photos
+                if (!kIsWeb)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: isSaving
+                          ? null
+                          : () async {
+                              setDialogState(() => isSaving = true);
+                              try {
+                                await Gal.putImageBytes(bytes);
+                                if (ctx.mounted) Navigator.of(ctx).pop();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: const Text('Saved to Photos'),
+                                      backgroundColor: AppColors.success,
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10),
+                                      ),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                debugPrint('Save to Photos error: $e');
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: const Text('Failed to save'),
+                                      backgroundColor: AppColors.error,
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                if (ctx.mounted) {
+                                  setDialogState(() => isSaving = false);
+                                }
+                              }
+                            },
+                      icon: isSaving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.textPrimary,
+                              ),
+                            )
+                          : const Icon(Icons.save_alt_rounded, size: 18),
+                      label: Text(isSaving ? 'Saving...' : 'Save to Photos'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.textPrimary,
+                        disabledBackgroundColor:
+                            AppColors.primary.withValues(alpha: 0.5),
+                        disabledForegroundColor: AppColors.textPrimary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (!kIsWeb) const SizedBox(height: 8),
+
+                // 📤 Share
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: isSharing
+                        ? null
+                        : () async {
+                            setDialogState(() => isSharing = true);
+                            try {
+                              final dir = await getTemporaryDirectory();
+                              final file = File(
+                                '${dir.path}/noise_card_${DateTime.now().millisecondsSinceEpoch}.png',
+                              );
+                              await file.writeAsBytes(bytes);
+                              await Share.shareXFiles(
+                                [XFile(file.path)],
+                                text: 'Measured with SoundSense',
+                              );
+                            } catch (e) {
+                              debugPrint('Share error: $e');
+                            } finally {
+                              if (ctx.mounted) {
+                                setDialogState(() => isSharing = false);
+                              }
+                            }
+                          },
+                    icon: isSharing
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.textPrimary,
+                            ),
+                          )
+                        : const Icon(Icons.share_outlined, size: 18),
+                    label: Text(isSharing ? 'Sharing...' : 'Share'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.textPrimary,
+                      disabledForegroundColor: AppColors.textPrimary,
+                      side: const BorderSide(color: AppColors.divider),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // 닫기
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: Text(
+                    'Close',
+                    style: TextStyle(color: AppColors.textTertiary),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

@@ -1,5 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
@@ -10,12 +14,12 @@ import 'package:soundsense/features/measurement/widgets/db_number_display.dart';
 import 'package:soundsense/features/measurement/widgets/level_badge.dart';
 import 'package:soundsense/features/measurement/widgets/waveform_visualizer.dart';
 import 'package:soundsense/features/measurement/screens/save_session_sheet.dart';
-import 'package:soundsense/features/settings/screens/noise_guide_screen.dart';
 import 'package:soundsense/shared/constants/app_constants.dart';
 import 'package:soundsense/shared/constants/db_levels.dart';
+import 'package:soundsense/shared/utils/haptic_utils.dart';
 
-/// 측정 화면 — 기획서 화면 1
-/// 실시간 dB 측정 + 게이지 + 레벨 뱃지 + 시작/정지 버튼
+/// 측정 화면 — 전면 재구성
+/// 고정 상단 + 스크롤 중단 + 고정 하단 버튼
 class MeasurementScreen extends ConsumerStatefulWidget {
   const MeasurementScreen({super.key});
 
@@ -24,6 +28,13 @@ class MeasurementScreen extends ConsumerStatefulWidget {
 }
 
 class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
+  // 마이크로 인터랙션 상태
+  bool _isButtonPressed = false;
+  bool _wasDangerLevel = false;
+  double _badgeScale = 1.0;
+  double _previousDb = 0.0;
+  bool _isDbHighlighted = false;
+
   @override
   void initState() {
     super.initState();
@@ -32,20 +43,41 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
       ref.read(micPermissionProvider.notifier).check();
     });
 
-    // 측정 상태 변화 시 WakeLock 토글
+    // 측정 상태 변화 시 WakeLock 토글 + danger 감지
     ref.listenManual(measurementProvider, (previous, next) {
       if (next is MeasurementActive) {
         WakelockPlus.enable();
+
+        // danger 레벨 처음 진입 시 배지 pulse + 햅틱
+        final isDanger = next.level == DbLevel.danger;
+        if (isDanger && !_wasDangerLevel) {
+          HapticUtils.warning();
+          setState(() => _badgeScale = 1.15);
+          Future.delayed(const Duration(milliseconds: 150), () {
+            if (mounted) setState(() => _badgeScale = 1.0);
+          });
+        }
+        _wasDangerLevel = isDanger;
+
+        // dB 큰 변화 (5dB+) 시 숫자 색상 강조
+        final dbDiff = (next.currentDb - _previousDb).abs();
+        if (dbDiff >= 5 && _previousDb > 0) {
+          setState(() => _isDbHighlighted = true);
+          Future.delayed(const Duration(milliseconds: 200), () {
+            if (mounted) setState(() => _isDbHighlighted = false);
+          });
+        }
+        _previousDb = next.currentDb;
       } else if (previous is MeasurementActive) {
-        // Active → 다른 상태 (Paused/Idle/Error) 전환 시 해제
         WakelockPlus.disable();
+        _wasDangerLevel = false;
+        _previousDb = 0.0;
       }
     });
   }
 
   @override
   void dispose() {
-    // 화면 이탈 시 반드시 WakeLock 해제
     WakelockPlus.disable();
     super.dispose();
   }
@@ -54,19 +86,18 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
   Widget build(BuildContext context) {
     final measureState = ref.watch(measurementProvider);
     final micPermission = ref.watch(micPermissionProvider);
-
-    // 현재 레벨 색상 (배경 연동용)
     final levelColor = _getLevelColor(measureState);
 
     return Scaffold(
-      // ─── 앱바: SoundSense + 저장 버튼 ───
+      extendBodyBehindAppBar: true,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('SoundSense'),
         centerTitle: true,
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        actions: const [],
+        systemOverlayStyle: SystemUiOverlayStyle.light,
       ),
       body: AnimatedContainer(
         duration: const Duration(milliseconds: 500),
@@ -81,22 +112,18 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
             ],
           ),
         ),
-        child: SafeArea(
-          child: _buildBody(measureState, micPermission),
-        ),
+        child: _buildBody(measureState, micPermission),
       ),
     );
   }
 
   /// 세션 저장 바텀시트 표시 — 측정 일시정지 후 시트 열기
   void _showSaveSheet(MeasurementState state) {
-    // 측정 중이면 먼저 일시정지
     final notifier = ref.read(measurementProvider.notifier);
     if (state is MeasurementActive) {
       notifier.pause();
     }
 
-    // 현재 상태에서 데이터 추출
     final double avgDb;
     final double maxDb;
     final double minDb;
@@ -131,28 +158,37 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
         sampleCount: sampleCount,
       ),
     ).then((saved) {
-      // 저장 완료 또는 저장 안 함 → 측정 초기화
       notifier.reset();
     });
   }
 
   /// 마이크 권한 상태에 따라 본문 분기
-  Widget _buildBody(MeasurementState measureState, MicPermissionState micPerm) {
-    // 권한 미확인 상태 — 로딩
+  Widget _buildBody(
+      MeasurementState measureState, MicPermissionState micPerm) {
     if (micPerm == MicPermissionState.unknown) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
+      return _buildCenteredContent(
+        child: const CircularProgressIndicator(color: AppColors.primary),
       );
     }
 
-    // 권한 거부 / 영구 거부 → 안내 UI
     if (micPerm == MicPermissionState.denied ||
         micPerm == MicPermissionState.permanentlyDenied) {
       return _buildPermissionDeniedUI(micPerm);
     }
 
-    // 권한 허용 → 측정 UI
     return _buildMeasurementUI(measureState);
+  }
+
+  /// 상단 패딩(상태바 + 앱바) 포함 중앙 정렬 래퍼
+  Widget _buildCenteredContent({required Widget child}) {
+    return Column(
+      children: [
+        SizedBox(
+          height: MediaQuery.of(context).padding.top + kToolbarHeight,
+        ),
+        Expanded(child: Center(child: child)),
+      ],
+    );
   }
 
   // ─── 마이크 권한 거부 안내 UI ───
@@ -160,13 +196,12 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
   Widget _buildPermissionDeniedUI(MicPermissionState micPerm) {
     final isPermanent = micPerm == MicPermissionState.permanentlyDenied;
 
-    return Center(
+    return _buildCenteredContent(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 마이크 아이콘
             Container(
               width: 80,
               height: 80,
@@ -181,7 +216,6 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            // 제목
             Text(
               'Microphone Access Required',
               style: AppTextStyles.cardTitle.copyWith(
@@ -190,7 +224,6 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
-            // 설명
             Text(
               isPermanent
                   ? 'Microphone access was permanently denied.\nPlease enable it in your device settings.'
@@ -199,18 +232,19 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            // 버튼
             SizedBox(
               width: double.infinity,
               height: 52,
               child: ElevatedButton.icon(
                 onPressed: () async {
                   if (isPermanent) {
-                    // 설정 앱 열기
-                    await ref.read(micPermissionProvider.notifier).openSettings();
+                    await ref
+                        .read(micPermissionProvider.notifier)
+                        .openSettings();
                   } else {
-                    // 권한 재요청
-                    await ref.read(micPermissionProvider.notifier).request();
+                    await ref
+                        .read(micPermissionProvider.notifier)
+                        .request();
                   }
                 },
                 icon: Icon(
@@ -234,54 +268,96 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
     );
   }
 
-  // ─── 측정 UI ───
+  // ─── 측정 UI (Column: 고정 상단 + 스크롤 중단 + 고정 하단) ───
 
   Widget _buildMeasurementUI(MeasurementState measureState) {
-    // 85dB 경고 배너 표시 여부
-    final showDangerBanner = measureState is MeasurementActive &&
+    final isActive = measureState is MeasurementActive;
+    final showDangerBanner = isActive &&
         measureState.currentDb >= AppConstants.dangerThresholdDb;
+    final topPadding = MediaQuery.of(context).padding.top + kToolbarHeight;
+    final levelColor = _getLevelColor(measureState);
 
     return Column(
       children: [
-        // ─── 85dB 초과 경고 배너 ───
+        // SafeArea 상단 여백 (상태바 + 앱바 높이)
+        SizedBox(height: topPadding),
+
+        // 85dB 초과 경고 배너
         _buildDangerBanner(showDangerBanner),
 
-        // ─── 스크롤 가능 영역 (게이지 + 수치) ───
+        // ─── 고정 상단 영역 ───
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+
+              // 레벨 배지 (측정 중에만 표시 + danger pulse)
+              AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: isActive ? 1.0 : 0.0,
+                child: isActive
+                    ? AnimatedScale(
+                        scale: _badgeScale,
+                        duration: const Duration(milliseconds: 150),
+                        curve: Curves.easeOut,
+                        child: LevelBadge(level: measureState.level),
+                      )
+                    : const SizedBox(height: 24),
+              ),
+              const SizedBox(height: 8),
+
+              // dB 숫자 (큰 변화 시 색상 강조)
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 200),
+                style: TextStyle(
+                  color: _isDbHighlighted
+                      ? AppColors.textPrimary
+                      : Colors.transparent, // 실제 색상은 DbNumberDisplay가 관리
+                ),
+                child: DbNumberDisplay(
+                  db: _getCurrentDb(measureState),
+                  color: _isDbHighlighted
+                      ? AppColors.textPrimary
+                      : (isActive ? levelColor : AppColors.textTertiary),
+                ),
+              ),
+              const SizedBox(height: 4),
+
+              // 안전 노출 시간 텍스트
+              _buildSafeExposureText(measureState),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        // ─── 스크롤 영역 ───
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
               children: [
-                const SizedBox(height: 16),
-
-                // ─── 레벨 뱃지 ───
-                LevelBadge(
-                  level: _getCurrentLevel(measureState),
-                ),
-                const SizedBox(height: 24),
-
-                // ─── dB 숫자 디스플레이 ───
-                DbNumberDisplay(
-                  db: _getCurrentDb(measureState),
-                  color: _getLevelColor(measureState),
-                ),
-                const SizedBox(height: 16),
-
-                // ─── 반원 게이지 ───
+                // 반원 게이지
                 DbGaugeWidget(
                   currentDb: _getCurrentDb(measureState),
+                  peakDb: _getPeakDb(measureState),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
 
-                // ─── 최소/최대 dB 카드 ───
+                // MIN / AVG / MAX 카드
                 _buildMinMaxRow(measureState),
                 const SizedBox(height: 16),
 
-                // ─── 실시간 파형 ───
+                // Fast / Slow 토글
+                _buildResponseModeToggle(),
+                const SizedBox(height: 16),
+
+                // 실시간 파형
                 WaveformVisualizer(
                   currentDb: _getCurrentDb(measureState),
                   level: _getCurrentLevel(measureState),
-                  isActive: measureState is MeasurementActive,
+                  isActive: isActive,
                 ),
                 const SizedBox(height: 16),
               ],
@@ -289,42 +365,215 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
           ),
         ),
 
-        // ─── 하단 고정 영역 (스크롤 밖) ───
+        // ─── 하단 고정 버튼 ───
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // ─── 시작/정지 버튼 ───
-              _buildControlButton(measureState),
-              const SizedBox(height: 8),
-
-              // ─── 리셋 버튼 (측정 중/일시정지일 때만) ───
-              if (measureState is MeasurementActive ||
-                  measureState is MeasurementPaused)
-                TextButton(
-                  onPressed: () {
-                    ref.read(measurementProvider.notifier).reset();
-                  },
-                  child: Text(
-                    'Reset',
-                    style: AppTextStyles.body.copyWith(
-                      color: AppColors.textTertiary,
-                    ),
-                  ),
-                ),
-
-              // ─── 하단 컨텍스트 팁 ───
-              _buildContextTip(measureState),
-              const SizedBox(height: 16),
-            ],
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+          child: SafeArea(
+            top: false,
+            child: _buildBottomButtons(measureState),
           ),
         ),
       ],
     );
   }
 
-  /// 85dB 초과 경고 배너 — 슬라이드 인/아웃 애니메이션
+  // ─── 안전 노출 시간 텍스트 ───
+
+  Widget _buildSafeExposureText(MeasurementState state) {
+    if (state is! MeasurementActive) {
+      return const SizedBox(height: 20);
+    }
+
+    final db = state.currentDb;
+    final text = _getSafeExposureText(db);
+    final isSafe = db < AppConstants.dangerThresholdDb;
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      child: Text(
+        text,
+        key: ValueKey(isSafe),
+        style: AppTextStyles.caption.copyWith(
+          color: isSafe
+              ? AppColors.levelQuiet.withValues(alpha: 0.8)
+              : AppColors.levelDanger.withValues(alpha: 0.8),
+          fontWeight: FontWeight.w500,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  /// WHO 기준 안전 노출 시간 계산
+  String _getSafeExposureText(double db) {
+    if (db < 85) return 'Safe for extended exposure \u{1F7E2}';
+
+    // WHO: 85dB=8h, 매 3dB 증가마다 시간 반감
+    final hours = 8.0 / math.pow(2, (db - 85) / 3);
+    if (hours >= 1) {
+      final h = hours.floor();
+      final m = ((hours - h) * 60).round();
+      if (m > 0) {
+        return '\u26A0\uFE0F Safe exposure: ${h}h ${m}m remaining';
+      }
+      return '\u26A0\uFE0F Safe exposure: ${h}h remaining';
+    }
+    final minutes = (hours * 60).round();
+    if (minutes > 0) {
+      return '\u26A0\uFE0F Safe exposure: ${minutes}m remaining';
+    }
+    return '\u26A0\uFE0F Immediate hearing risk!';
+  }
+
+  // ─── Fast/Slow 토글 ───
+
+  Widget _buildResponseModeToggle() {
+    final notifier = ref.read(measurementProvider.notifier);
+    final mode = notifier.responseMode;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _buildModeButton(
+          label: 'Fast',
+          isSelected: mode == ResponseMode.fast,
+          onTap: () {
+            notifier.setResponseMode(ResponseMode.fast);
+            setState(() {});
+          },
+        ),
+        const SizedBox(width: 8),
+        _buildModeButton(
+          label: 'Slow',
+          isSelected: mode == ResponseMode.slow,
+          onTap: () {
+            notifier.setResponseMode(ResponseMode.slow);
+            setState(() {});
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildModeButton({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.accent : AppColors.surfaceLight,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: AppTextStyles.caption.copyWith(
+            color: isSelected ? AppColors.background : AppColors.textSecondary,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── 하단 버튼 (Start/Stop + Info) ───
+
+  Widget _buildBottomButtons(MeasurementState state) {
+    final isActive = state is MeasurementActive;
+    final levelColor = isActive ? _getFabLevelColor(state.level) : null;
+
+    return Row(
+      children: [
+        // 메인 버튼 (flex) — 스케일 + 햅틱
+        Expanded(
+          child: Listener(
+            onPointerDown: (_) => setState(() => _isButtonPressed = true),
+            onPointerUp: (_) => setState(() => _isButtonPressed = false),
+            onPointerCancel: (_) =>
+                setState(() => _isButtonPressed = false),
+            child: AnimatedScale(
+              scale: _isButtonPressed ? 0.95 : 1.0,
+              duration: const Duration(milliseconds: 100),
+              curve: Curves.easeOut,
+              child: SizedBox(
+                height: 56,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    HapticUtils.medium();
+                    if (isActive) {
+                      _showSaveSheet(state);
+                    } else {
+                      ref.read(measurementProvider.notifier).start();
+                    }
+                  },
+                  icon: Icon(
+                    isActive ? Icons.stop_rounded : Icons.mic,
+                    size: 22,
+                  ),
+                  label: Text(
+                    isActive ? 'Stop & Save' : 'Start Measuring',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        isActive ? levelColor : AppColors.accent,
+                    foregroundColor: isActive
+                        ? AppColors.textPrimary
+                        : AppColors.background,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                    elevation: 4,
+                    shadowColor:
+                        (isActive ? levelColor : AppColors.accent)
+                            ?.withValues(alpha: 0.4),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Info 버튼
+        SizedBox(
+          width: 56,
+          height: 56,
+          child: ElevatedButton(
+            onPressed: () => context.push('/settings/noise-guide'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.surfaceLight,
+              foregroundColor: AppColors.textSecondary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+              ),
+              padding: EdgeInsets.zero,
+              elevation: 0,
+            ),
+            child: const Icon(Icons.info_outline, size: 22),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 측정 중 버튼 색상 — DbLevel → Color
+  Color _getFabLevelColor(DbLevel level) {
+    return switch (level) {
+      DbLevel.silent || DbLevel.quiet => AppColors.levelQuiet,
+      DbLevel.moderate => AppColors.levelModerate,
+      DbLevel.loud => AppColors.levelLoud,
+      DbLevel.danger => AppColors.levelDanger,
+    };
+  }
+
+  /// 85dB 초과 경고 배너
   Widget _buildDangerBanner(bool visible) {
     return AnimatedSlide(
       duration: const Duration(milliseconds: 300),
@@ -349,10 +598,10 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('⚠️', style: TextStyle(fontSize: 16)),
+              const Text('\u26A0\uFE0F', style: TextStyle(fontSize: 16)),
               const SizedBox(width: 8),
               Text(
-                'Hearing damage risk · 청력 주의 구간',
+                'Hearing damage risk',
                 style: AppTextStyles.caption.copyWith(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.w600,
@@ -365,7 +614,7 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
     );
   }
 
-  /// 최소/최대 dB 표시 카드
+  /// MIN/AVG/MAX 카드
   Widget _buildMinMaxRow(MeasurementState state) {
     final hasData = state is MeasurementActive || state is MeasurementPaused;
     final minDb = _getMinDb(state);
@@ -436,114 +685,19 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
     );
   }
 
-  /// 측정 시작/정지 버튼
-  Widget _buildControlButton(MeasurementState state) {
-    final isActive = state is MeasurementActive;
-    final isIdle = state is MeasurementIdle;
-    final isError = state is MeasurementError;
-
-    return SizedBox(
-      width: 200,
-      height: 64,
-      child: ElevatedButton(
-        onPressed: () {
-          if (isActive) {
-            // Stop 탭 → 자동으로 저장 바텀시트 등장
-            _showSaveSheet(state);
-          } else {
-            ref.read(measurementProvider.notifier).start();
-          }
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isActive ? AppColors.error : AppColors.primary,
-          foregroundColor: AppColors.textPrimary,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          elevation: isActive ? 8 : 4,
-          shadowColor: isActive
-              ? AppColors.error.withValues(alpha: 0.4)
-              : AppColors.primary.withValues(alpha: 0.4),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isActive
-                  ? Icons.stop_rounded
-                  : Icons.mic_rounded,
-              size: 28,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              isActive
-                  ? 'Stop'
-                  : (isIdle || isError)
-                      ? 'Start'
-                      : 'Resume',
-              style: AppTextStyles.levelLabel.copyWith(
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 하단 컨텍스트 팁 — 레벨별 다른 텍스트
-  Widget _buildContextTip(MeasurementState state) {
-    final tip = _getTipText(state);
-
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      child: GestureDetector(
-        key: ValueKey(tip),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const NoiseGuideScreen()),
-        ),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.divider),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.info_outline_rounded,
-                size: 18,
-                color: _getLevelColor(state).withValues(alpha: 0.7),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  tip,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 18,
-                color: AppColors.textTertiary,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   // ─── 상태별 값 추출 헬퍼 ───
 
   double _getCurrentDb(MeasurementState state) {
     return switch (state) {
       MeasurementActive(:final currentDb) => currentDb,
       MeasurementPaused(:final lastDb) => lastDb,
+      _ => 0.0,
+    };
+  }
+
+  double _getPeakDb(MeasurementState state) {
+    return switch (state) {
+      MeasurementActive(:final peakDb) => peakDb,
       _ => 0.0,
     };
   }
@@ -581,26 +735,6 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
       MeasurementActive(:final avgDb) => avgDb,
       MeasurementPaused(:final avgDb) => avgDb,
       _ => 0.0,
-    };
-  }
-
-  /// 레벨별 컨텍스트 팁 텍스트
-  String _getTipText(MeasurementState state) {
-    if (state is MeasurementIdle) {
-      return 'Tap Start to begin measuring noise levels around you.';
-    }
-    if (state is MeasurementError) {
-      return 'An error occurred. Please try again.';
-    }
-
-    final level = _getCurrentLevel(state);
-    return switch (level) {
-      DbLevel.silent => 'Very quiet environment. Like a library or empty room.',
-      DbLevel.quiet => 'Normal conversation level. Comfortable for most activities.',
-      DbLevel.moderate => 'Getting noisy. Similar to a busy restaurant.',
-      DbLevel.loud => 'Loud environment! Prolonged exposure may cause discomfort.',
-      DbLevel.danger =>
-        'Dangerous noise level! Prolonged exposure may damage hearing.',
     };
   }
 }

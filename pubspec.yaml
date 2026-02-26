@@ -59,6 +59,9 @@ dependencies:
   # 공유
   share_plus: ^10.1.4
 
+  # 갤러리 저장
+  gal: ^2.3.0
+
   # 로컬 설정
   shared_preferences: ^2.3.3
 

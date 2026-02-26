@@ -6,12 +6,30 @@ import 'package:soundsense/features/measurement/screens/measurement_screen.dart'
 import 'package:soundsense/features/history/screens/history_screen.dart';
 import 'package:soundsense/features/history/screens/session_detail_screen.dart';
 import 'package:soundsense/features/map/screens/map_screen.dart';
+import 'package:soundsense/features/onboarding/screens/onboarding_screen.dart';
 import 'package:soundsense/features/settings/screens/settings_screen.dart';
+import 'package:soundsense/features/settings/screens/noise_guide_screen.dart';
+import 'package:soundsense/main.dart' show isOnboardingDoneProvider;
 
 final _routerProvider = Provider<GoRouter>((ref) {
+  final isOnboardingDone = ref.watch(isOnboardingDoneProvider);
+
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: isOnboardingDone ? '/' : '/onboarding',
     routes: [
+      // ─── 온보딩 (풀스크린 — 페이드 전환 400ms) ───
+      GoRoute(
+        path: '/onboarding',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const OnboardingScreen(),
+          transitionDuration: const Duration(milliseconds: 400),
+          transitionsBuilder: (context, animation, _, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        ),
+      ),
+
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return _AppShell(navigationShell: navigationShell);
@@ -35,8 +53,11 @@ final _routerProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(
                     path: ':id',
-                    builder: (context, state) => SessionDetailScreen(
-                      sessionId: state.pathParameters['id'] ?? '',
+                    pageBuilder: (context, state) => _fadeSlide(
+                      state,
+                      SessionDetailScreen(
+                        sessionId: state.pathParameters['id'] ?? '',
+                      ),
                     ),
                   ),
                 ],
@@ -61,6 +82,13 @@ final _routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/settings',
                 builder: (context, state) => const SettingsScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'noise-guide',
+                    pageBuilder: (context, state) =>
+                        _fadeSlide(state, const NoiseGuideScreen()),
+                  ),
+                ],
               ),
             ],
           ),
@@ -69,6 +97,30 @@ final _routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+/// 일반 push 전환 — 페이드 + 슬라이드 (아래→위), 250ms
+CustomTransitionPage _fadeSlide(GoRouterState state, Widget child) {
+  return CustomTransitionPage(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 250),
+    transitionsBuilder: (context, animation, _, page) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+      );
+      final slide = Tween<Offset>(
+        begin: const Offset(0, 0.08),
+        end: Offset.zero,
+      ).animate(curved);
+
+      return FadeTransition(
+        opacity: curved,
+        child: SlideTransition(position: slide, child: page),
+      );
+    },
+  );
+}
 
 /// 앱 루트 위젯
 class SoundSenseApp extends ConsumerWidget {
