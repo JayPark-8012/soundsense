@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:noise_meter/noise_meter.dart';
 import 'package:soundsense/shared/constants/app_constants.dart';
 import 'package:soundsense/shared/constants/db_levels.dart';
+import 'package:soundsense/features/settings/providers/settings_provider.dart';
 import 'package:soundsense/shared/providers/calibration_provider.dart';
 
 // ─── 응답 속도 모드 ───
@@ -110,6 +111,10 @@ final measurementProvider =
     ref.listen<double>(calibrationOffsetProvider, (_, next) {
       notifier.calibrationOffset = next;
     }, fireImmediately: true);
+    // 85dB 경고 토글 동기화
+    ref.listen<bool>(is85dbAlertProvider, (_, next) {
+      notifier.is85dbAlertEnabled = next;
+    }, fireImmediately: true);
     return notifier;
   },
 );
@@ -125,6 +130,9 @@ class MeasurementNotifier extends StateNotifier<MeasurementState> {
   /// 캘리브레이션 오프셋 (dB) — Provider에서 주입
   double calibrationOffset = 0.0;
 
+  /// 85dB 경고 알림 활성화 여부 — Provider에서 주입
+  bool is85dbAlertEnabled = true;
+
   /// 응답 속도 모드
   ResponseMode _responseMode = ResponseMode.fast;
   ResponseMode get responseMode => _responseMode;
@@ -133,6 +141,13 @@ class MeasurementNotifier extends StateNotifier<MeasurementState> {
   final List<double> _slowBuffer = [];
   static const _slowBufferSize = 5;
   Timer? _slowTimer;
+
+  // ─── Timeline Chart용 1초 간격 dB 샘플 수집 ───
+  final List<double> _dbSamples = [];
+  DateTime? _lastSampleTime;
+
+  /// 수집된 dB 샘플 (1초 간격)
+  List<double> get dbSamples => List.unmodifiable(_dbSamples);
 
   /// 응답 속도 모드 전환
   void setResponseMode(ResponseMode mode) {
@@ -197,6 +212,8 @@ class MeasurementNotifier extends StateNotifier<MeasurementState> {
     _slowTimer?.cancel();
     _slowTimer = null;
     _slowBuffer.clear();
+    _dbSamples.clear();
+    _lastSampleTime = null;
     state = const MeasurementIdle();
   }
 
@@ -222,6 +239,14 @@ class MeasurementNotifier extends StateNotifier<MeasurementState> {
   /// dB 값을 상태에 반영
   void _applyDb(double db, MeasurementPaused? resumeFrom) {
     final current = state;
+
+    // ─── 1초 간격 샘플 수집 (Timeline Chart용) ───
+    final now = DateTime.now();
+    if (_lastSampleTime == null ||
+        now.difference(_lastSampleTime!).inMilliseconds >= 1000) {
+      _dbSamples.add(db);
+      _lastSampleTime = now;
+    }
 
     if (current is MeasurementActive) {
       // 기존 측정 중 → 샘플 추가
@@ -260,9 +285,9 @@ class MeasurementNotifier extends StateNotifier<MeasurementState> {
     }
   }
 
-  /// 85dB 초과 시 햅틱 진동
+  /// 85dB 초과 시 햅틱 진동 (설정 토글 연동)
   void _checkDangerAlert(MeasurementActive active) {
-    if (active.isDangerAlert) {
+    if (active.isDangerAlert && is85dbAlertEnabled) {
       HapticFeedback.heavyImpact();
     }
   }

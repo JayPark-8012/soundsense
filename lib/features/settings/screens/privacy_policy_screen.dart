@@ -6,6 +6,7 @@ import 'package:soundsense/core/firebase/anonymous_auth.dart';
 import 'package:soundsense/core/firebase/firebase_provider.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
+import 'package:soundsense/shared/extensions/l10n_extension.dart';
 
 /// 개인정보처리방침 화면
 class PrivacyPolicyScreen extends ConsumerWidget {
@@ -16,7 +17,7 @@ class PrivacyPolicyScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Privacy Policy'),
+        title: Text(context.l10n.privacyPolicy),
         centerTitle: true,
       ),
       body: ListView(
@@ -25,11 +26,11 @@ class PrivacyPolicyScreen extends ConsumerWidget {
           // ─── 1. 수집 데이터 ───
           _buildPolicyCard(
             icon: Icons.storage_rounded,
-            title: 'Data We Collect',
-            items: const [
-              'Noise level measurements (dB values)',
-              'Location (optional, only when you share to map)',
-              'Anonymous device ID (Firebase Anonymous Auth)',
+            title: context.l10n.ppDataCollectTitle,
+            items: [
+              context.l10n.ppDataCollect1,
+              context.l10n.ppDataCollect2,
+              context.l10n.ppDataCollect3,
             ],
           ),
           const SizedBox(height: 12),
@@ -38,11 +39,11 @@ class PrivacyPolicyScreen extends ConsumerWidget {
           _buildPolicyCard(
             icon: Icons.shield_rounded,
             iconColor: AppColors.success,
-            title: 'Data We Do NOT Collect',
-            items: const [
-              'Personal information (name, email, phone)',
-              'Audio recordings — no sound is ever stored',
-              'Browsing history or app usage tracking',
+            title: context.l10n.ppDataNotCollectTitle,
+            items: [
+              context.l10n.ppDataNotCollect1,
+              context.l10n.ppDataNotCollect2,
+              context.l10n.ppDataNotCollect3,
             ],
           ),
           const SizedBox(height: 12),
@@ -50,22 +51,16 @@ class PrivacyPolicyScreen extends ConsumerWidget {
           // ─── 3. 익명 인증 ───
           _buildPolicyCard(
             icon: Icons.fingerprint_rounded,
-            title: 'Anonymous Authentication',
-            body: 'SoundSense uses Firebase Anonymous Auth to generate '
-                'a random device identifier. This ID cannot be traced '
-                'back to you personally. It is used only to associate '
-                'your shared map data for deletion requests.',
+            title: context.l10n.ppAnonAuthTitle,
+            body: context.l10n.ppAnonAuthBody,
           ),
           const SizedBox(height: 12),
 
           // ─── 4. 데이터 저장 ───
           _buildPolicyCard(
             icon: Icons.smartphone_rounded,
-            title: 'Data Storage',
-            body: 'All measurement sessions are stored locally on your '
-                'device. Only data you explicitly choose to share is '
-                'uploaded to Firebase Firestore for the community '
-                'noise map.',
+            title: context.l10n.ppDataStorageTitle,
+            body: context.l10n.ppDataStorageBody,
           ),
           const SizedBox(height: 12),
 
@@ -73,20 +68,16 @@ class PrivacyPolicyScreen extends ConsumerWidget {
           _buildPolicyCard(
             icon: Icons.delete_sweep_rounded,
             iconColor: AppColors.warning,
-            title: 'Data Deletion',
-            body: 'You can delete all your data at any time using the '
-                'button below. This removes all local measurement '
-                'sessions and any data you shared to the noise map.',
+            title: context.l10n.ppDataDeletionTitle,
+            body: context.l10n.ppDataDeletionBody,
           ),
           const SizedBox(height: 12),
 
           // ─── 6. 연락처 ───
           _buildPolicyCard(
             icon: Icons.email_outlined,
-            title: 'Contact',
-            body: 'For questions about this privacy policy or data '
-                'requests, please contact us at:\n'
-                'support@soundsense.app',
+            title: context.l10n.ppContactTitle,
+            body: context.l10n.ppContactBody,
           ),
           const SizedBox(height: 24),
 
@@ -182,7 +173,7 @@ class PrivacyPolicyScreen extends ConsumerWidget {
       child: OutlinedButton.icon(
         onPressed: () => _showDeleteConfirmation(context, ref),
         icon: const Icon(Icons.delete_forever_rounded),
-        label: const Text('Delete All My Data'),
+        label: Text(context.l10n.deleteAllMyData),
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.error,
           side: BorderSide(color: AppColors.error.withValues(alpha: 0.5)),
@@ -208,7 +199,7 @@ class PrivacyPolicyScreen extends ConsumerWidget {
             Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 24),
             const SizedBox(width: 10),
             Text(
-              'Delete All Data?',
+              context.l10n.deleteAllDataTitle,
               style: AppTextStyles.cardTitle.copyWith(
                 color: AppColors.textPrimary,
               ),
@@ -216,10 +207,7 @@ class PrivacyPolicyScreen extends ConsumerWidget {
           ],
         ),
         content: Text(
-          'This will permanently delete:\n\n'
-          '\u2022 All local measurement sessions\n'
-          '\u2022 All your data shared to the noise map\n\n'
-          'This action cannot be undone.',
+          context.l10n.deleteAllDataBody,
           style: AppTextStyles.body.copyWith(
             color: AppColors.textSecondary,
             height: 1.6,
@@ -229,7 +217,7 @@ class PrivacyPolicyScreen extends ConsumerWidget {
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: Text(
-              'Cancel',
+              context.l10n.cancel,
               style: AppTextStyles.body.copyWith(color: AppColors.textTertiary),
             ),
           ),
@@ -239,7 +227,7 @@ class PrivacyPolicyScreen extends ConsumerWidget {
               _deleteAllData(context, ref);
             },
             child: Text(
-              'Delete Everything',
+              context.l10n.deleteEverything,
               style: AppTextStyles.body.copyWith(
                 color: AppColors.error,
                 fontWeight: FontWeight.w700,
@@ -282,7 +270,7 @@ class PrivacyPolicyScreen extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('All data has been deleted.'),
+            content: Text(context.l10n.allDataDeleted),
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
@@ -296,7 +284,7 @@ class PrivacyPolicyScreen extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to delete data: $e'),
+            content: Text(context.l10n.failedToDeleteData),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(

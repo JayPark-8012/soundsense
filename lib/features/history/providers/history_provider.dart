@@ -6,20 +6,27 @@ import 'package:soundsense/shared/constants/app_constants.dart';
 // ─── 기간 필터 ───
 
 /// 히스토리 기간 필터
-enum HistoryFilter { thisWeek, thisMonth }
+enum HistoryFilter { last7Days, allHistory }
 
 /// 현재 선택된 필터
 final historyFilterProvider = StateProvider<HistoryFilter>(
-  (ref) => HistoryFilter.thisWeek,
+  (ref) => HistoryFilter.last7Days,
 );
 
 // ─── 세션 목록 ───
 
-/// 세션 목록 Provider — 전체 기간 표시 (PLANNING.md: "목록: 기간 제한 없음")
+/// 세션 목록 Provider — 필터에 따라 기간 제한
 final sessionListProvider =
     FutureProvider<List<MeasurementSession>>((ref) async {
   final repo = ref.watch(sessionRepositoryProvider);
-  return repo.getSessions();
+  final filter = ref.watch(historyFilterProvider);
+
+  if (filter == HistoryFilter.allHistory) {
+    return repo.getSessions();
+  }
+
+  // Last 7 Days — 최근 7일만
+  return repo.getSessions(limitDays: AppConstants.freeHistoryLimitDays);
 });
 
 // ─── 주간 차트 데이터 ───

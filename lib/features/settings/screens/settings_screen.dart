@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:soundsense/core/database/session_repository.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
 import 'package:soundsense/features/onboarding/screens/onboarding_screen.dart'
@@ -12,9 +13,13 @@ import 'package:soundsense/features/settings/providers/settings_provider.dart';
 import 'package:soundsense/features/settings/screens/disclaimer_screen.dart';
 import 'package:soundsense/features/settings/screens/noise_guide_screen.dart';
 import 'package:soundsense/features/settings/screens/privacy_policy_screen.dart';
+import 'package:soundsense/features/settings/services/csv_export_service.dart';
+import 'package:soundsense/features/settings/services/pdf_report_service.dart';
 import 'package:soundsense/shared/providers/calibration_provider.dart';
 import 'package:soundsense/shared/providers/premium_provider.dart';
+import 'package:soundsense/shared/services/ad_service.dart';
 import 'package:soundsense/shared/widgets/premium_bottom_sheet.dart';
+import 'package:soundsense/shared/extensions/l10n_extension.dart';
 import 'package:soundsense/shared/widgets/premium_guard.dart';
 
 /// 설정 화면 — 탭 4
@@ -24,14 +29,13 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final is85dbAlert = ref.watch(is85dbAlertProvider);
-    final isWeeklyReport = ref.watch(isWeeklyReportProvider);
     final selectedLocale = ref.watch(selectedLocaleProvider);
     final calibrationOffset = ref.watch(calibrationOffsetProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: Text(context.l10n.settingsTitle),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -40,40 +44,31 @@ class SettingsScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ─── PRO 카드 ───
-            _buildProCard(context),
+            _buildProCard(context, ref),
             const SizedBox(height: 24),
 
             // ─── 캘리브레이션 섹션 ───
-            _buildSectionHeader('Calibration'),
+            _buildSectionHeader(context.l10n.calibration),
             const SizedBox(height: 8),
-            _buildCalibrationSection(ref, calibrationOffset),
+            _buildCalibrationSection(context, ref, calibrationOffset),
             const SizedBox(height: 24),
 
             // ─── 알림 섹션 ───
-            _buildSectionHeader('Notifications'),
+            _buildSectionHeader(context.l10n.noiseAlert),
             const SizedBox(height: 8),
             _buildToggleTile(
               icon: Icons.warning_amber_rounded,
               iconColor: AppColors.warning,
-              title: '85dB Warning',
-              subtitle: 'Alert when noise exceeds 85dB',
+              title: context.l10n.noiseAlert,
+              subtitle: context.l10n.noiseAlertDesc,
               value: is85dbAlert,
               onChanged: (_) =>
                   ref.read(is85dbAlertProvider.notifier).toggle(),
             ),
-            _buildToggleTile(
-              icon: Icons.bar_chart_rounded,
-              iconColor: AppColors.accent,
-              title: 'Weekly Report',
-              subtitle: 'Get weekly noise summary',
-              value: isWeeklyReport,
-              onChanged: (_) =>
-                  ref.read(isWeeklyReportProvider.notifier).toggle(),
-            ),
             const SizedBox(height: 24),
 
             // ─── 언어 섹션 ───
-            _buildSectionHeader('Language'),
+            _buildSectionHeader(context.l10n.language),
             const SizedBox(height: 8),
             _buildLanguageSelector(
               selectedLocale: selectedLocale,
@@ -83,84 +78,54 @@ class SettingsScreen extends ConsumerWidget {
             const SizedBox(height: 24),
 
             // ─── PRO 기능 섹션 ───
-            _buildSectionHeader('PRO Features'),
+            _buildSectionHeader(context.l10n.proFeatures),
             const SizedBox(height: 8),
-            PremiumGuard(
-              featureName: 'Monthly PDF Report',
-              lockedChild: _buildLockedProTile(
-                icon: Icons.picture_as_pdf_rounded,
-                title: 'Monthly PDF Report',
-              ),
-              child: _buildInfoTile(
-                icon: Icons.picture_as_pdf_rounded,
-                title: 'Monthly PDF Report',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('PDF report coming soon'),
-                      backgroundColor: AppColors.proGold,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                },
-              ),
+            _buildInfoTile(
+              icon: Icons.picture_as_pdf_rounded,
+              title: context.l10n.monthlyPdf,
+              onTap: () => _onGeneratePdfReport(context, ref),
             ),
             PremiumGuard(
-              featureName: 'CSV Export',
+              featureName: context.l10n.csvExport,
               lockedChild: _buildLockedProTile(
+                context: context,
                 icon: Icons.file_download_outlined,
-                title: 'CSV Export',
+                title: context.l10n.csvExport,
               ),
               child: _buildInfoTile(
                 icon: Icons.file_download_outlined,
-                title: 'CSV Export',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('CSV export coming soon'),
-                      backgroundColor: AppColors.proGold,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                },
+                title: context.l10n.csvExport,
+                onTap: () => _onExportCsv(context, ref),
               ),
             ),
             const SizedBox(height: 24),
 
             // ─── 정보 섹션 ───
-            _buildSectionHeader('Information'),
+            _buildSectionHeader(context.l10n.information),
             const SizedBox(height: 8),
             _buildInfoTile(
               icon: Icons.volume_up_rounded,
-              title: 'Noise Level Guide',
+              title: context.l10n.noiseGuide,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const NoiseGuideScreen()),
               ),
             ),
             _buildInfoTile(
               icon: Icons.gavel_rounded,
-              title: 'Disclaimer',
+              title: context.l10n.disclaimer,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const DisclaimerScreen()),
               ),
             ),
             _buildInfoTile(
               icon: Icons.privacy_tip_outlined,
-              title: 'Privacy Policy',
+              title: context.l10n.privacyPolicy,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
                     builder: (_) => const PrivacyPolicyScreen()),
               ),
             ),
-            _buildVersionTile(),
+            _buildVersionTile(context.l10n.version),
 
             // ─── Debug 섹션 (kDebugMode only) ───
             if (kDebugMode) ...[
@@ -173,12 +138,27 @@ class SettingsScreen extends ConsumerWidget {
                 title: 'PRO Mode',
                 subtitle: 'Toggle premium features for testing',
                 value: ref.watch(debugPremiumProvider),
-                onChanged: (_) =>
-                    ref.read(debugPremiumProvider.notifier).toggle(),
+                onChanged: (newValue) {
+                  ref.read(debugPremiumProvider.notifier).toggle();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        newValue ? 'PRO 모드 활성화' : 'PRO 모드 비활성화',
+                      ),
+                      backgroundColor:
+                          newValue ? AppColors.proGold : AppColors.surface,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      duration: const Duration(seconds: 1),
+                    ),
+                  );
+                },
               ),
               _buildInfoTile(
                 icon: Icons.refresh_rounded,
-                title: 'Reset Onboarding',
+                title: context.l10n.resetOnboarding,
                 onTap: () async {
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.setBool(kOnboardingDoneKey, false);
@@ -196,9 +176,100 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
+  // ─── CSV 내보내기 ───
+
+  Future<void> _onExportCsv(BuildContext context, WidgetRef ref) async {
+    try {
+      final sessions = await ref.read(sessionRepositoryProvider).getSessions();
+      if (sessions.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(context.l10n.noMeasurementsToExport),
+              backgroundColor: AppColors.surface,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      await CsvExportService.exportAllSessions(sessions);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.l10n.failedToExportCsv),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  // ─── 월간 PDF 리포트 ───
+
+  Future<void> _onGeneratePdfReport(BuildContext context, WidgetRef ref) async {
+    final isPremium = ref.read(isPremiumProvider);
+
+    if (isPremium) {
+      await _generatePdf(context, ref);
+    } else {
+      // 무료 유저 → 리워드 광고 시청 후 PDF 생성
+      final adService = ref.read(adServiceProvider);
+      final shown = await adService.showRewardedAd(
+        onRewarded: () => _generatePdf(context, ref),
+      );
+      if (!shown && context.mounted) {
+        // 광고 미로드 시 바로 생성 (광고 로드 실패 시 사용자 차단 방지)
+        await _generatePdf(context, ref);
+      }
+    }
+  }
+
+  Future<void> _generatePdf(BuildContext context, WidgetRef ref) async {
+    try {
+      final sessions = await ref.read(sessionRepositoryProvider).getSessions();
+      final hasData = await PdfReportService.generateMonthlyReport(sessions);
+      if (!hasData && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.l10n.noMeasurementsThisMonth),
+            backgroundColor: AppColors.surface,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.l10n.failedToGeneratePdf),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   // ─── PRO 카드 ───
 
-  Widget _buildProCard(BuildContext context) {
+  Widget _buildProCard(BuildContext context, WidgetRef ref) {
+    final isPremium = ref.watch(isPremiumProvider);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -213,7 +284,7 @@ class SettingsScreen extends ConsumerWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppColors.proGold.withValues(alpha: 0.08),
+            AppColors.proGold.withValues(alpha: isPremium ? 0.15 : 0.08),
             AppColors.surface,
           ],
         ),
@@ -228,55 +299,74 @@ class SettingsScreen extends ConsumerWidget {
                 style: TextStyle(fontSize: 24),
               ),
               const SizedBox(width: 10),
-              Text(
-                'SoundSense PRO',
-                style: AppTextStyles.cardTitle.copyWith(
-                  color: AppColors.proGold,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: Text(
+                  context.l10n.soundsensePro,
+                  style: AppTextStyles.cardTitle.copyWith(
+                    color: AppColors.proGold,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
+              if (isPremium)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    context.l10n.proActiveLabel,
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.success,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
-            'Unlock full history, detailed charts, and more',
+            isPremium ? context.l10n.proActiveDesc : context.l10n.proDesc,
             style: AppTextStyles.body.copyWith(
               color: AppColors.textTertiary,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            'From \$2.99/month',
-            style: AppTextStyles.body.copyWith(
-              color: AppColors.proGoldLight,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: () {
-                PremiumBottomSheet.show(context, featureName: 'SoundSense PRO');
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.proGold,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: Text(
-                'Start Free Trial',
-                style: AppTextStyles.body.copyWith(
-                  color: Colors.black,
-                  fontWeight: FontWeight.w700,
-                ),
+          if (!isPremium) ...[
+            const SizedBox(height: 4),
+            Text(
+              context.l10n.proFromPrice,
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.proGoldLight,
+                fontWeight: FontWeight.w600,
               ),
             ),
-          ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: () {
+                  PremiumBottomSheet.show(context, featureName: context.l10n.soundsensePro);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.proGold,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: Text(
+                  context.l10n.getLifetimePro,
+                  style: AppTextStyles.body.copyWith(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -284,7 +374,8 @@ class SettingsScreen extends ConsumerWidget {
 
   // ─── 캘리브레이션 섹션 ───
 
-  Widget _buildCalibrationSection(WidgetRef ref, double offset) {
+  Widget _buildCalibrationSection(
+      BuildContext context, WidgetRef ref, double offset) {
     final Color trackColor;
     if (offset < 0) {
       trackColor = AppColors.accent;
@@ -312,7 +403,7 @@ class SettingsScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Microphone Offset',
+                      context.l10n.calibration,
                       style: AppTextStyles.body.copyWith(
                         color: AppColors.textPrimary,
                         fontWeight: FontWeight.w600,
@@ -320,7 +411,7 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Adjust if readings seem too high or low',
+                      context.l10n.calibrationSubtitle,
                       style: AppTextStyles.caption.copyWith(
                         color: AppColors.textTertiary,
                       ),
@@ -381,7 +472,7 @@ class SettingsScreen extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      'Reset to Default',
+                      context.l10n.resetDefault,
                       style: AppTextStyles.caption.copyWith(
                         color: AppColors.textSecondary,
                         fontWeight: FontWeight.w500,
@@ -401,7 +492,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'This is not a certified measurement device. Values are approximate.',
+            context.l10n.calibrationWarning,
             style: AppTextStyles.caption.copyWith(
               color: AppColors.textTertiary,
               fontSize: 10,
@@ -590,6 +681,7 @@ class SettingsScreen extends ConsumerWidget {
   // ─── PRO 잠금 타일 (lockedChild) ───
 
   Widget _buildLockedProTile({
+    required BuildContext context,
     required IconData icon,
     required String title,
   }) {
@@ -628,7 +720,7 @@ class SettingsScreen extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                'PRO',
+                context.l10n.pro,
                 style: AppTextStyles.caption.copyWith(
                   color: AppColors.proGold,
                   fontWeight: FontWeight.w700,
@@ -644,7 +736,7 @@ class SettingsScreen extends ConsumerWidget {
 
   // ─── 앱 버전 타일 ───
 
-  Widget _buildVersionTile() {
+  Widget _buildVersionTile(String versionLabel) {
     return FutureBuilder<PackageInfo>(
       future: PackageInfo.fromPlatform(),
       builder: (context, snapshot) {
@@ -668,7 +760,7 @@ class SettingsScreen extends ConsumerWidget {
               ),
               const SizedBox(width: 14),
               Text(
-                'App Version',
+                versionLabel,
                 style: AppTextStyles.body.copyWith(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.w500,

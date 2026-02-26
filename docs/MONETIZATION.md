@@ -14,9 +14,9 @@ Revenue Stream 1: 광고 (AdMob)
   → 리워드: 무료 유저 PDF 리포트 요청 시 (선택)
   → 측정 화면 광고 없음 (절대 금지)
 
-Revenue Stream 2: 프리미엄 구독 (RevenueCat)
-  → 월간 / 연간 구독
-  → 7일 무료 체험 제공
+Revenue Stream 2: Lifetime PRO (RevenueCat)
+  → 1회 결제, 평생 이용
+  → 구독 없음
 ```
 
 ---
@@ -25,15 +25,12 @@ Revenue Stream 2: 프리미엄 구독 (RevenueCat)
 
 | 플랜 | 글로벌 (USD) | 한국 (KRW) |
 |------|-------------|-----------|
-| 월간 | $2.99/month | ₩3,900/월 |
-| 연간 | $19.99/year | ₩24,900/년 |
-| 절약 | 44% 절약 | 47% 절약 |
-| 무료 체험 | 7일 | 7일 |
+| Lifetime PRO | $8.99 (1회) | ₩9,900 (1회) |
+| 방식 | 1회 결제, 평생 이용 | 구독 없음 |
 
 ### RevenueCat 상품 ID
 ```
-monthly:  soundsense_pro_monthly
-annual:   soundsense_pro_annual
+lifetime: soundsense_pro_lifetime
 ```
 
 ---
@@ -72,6 +69,14 @@ annual:   soundsense_pro_annual
 ---
 
 ## PRO 기능 잠금 처리 방식
+
+### 히스토리 잠금 정책
+```
+무료: Last 7 Days (목록 + 상세 모두 접근)
+7일 이후: 목록에서 🔒 카드로 표시
+PRO: All History 무제한 (목록 + 상세 모두 접근)
+버튼: [Last 7 Days] [All History 👑]
+```
 
 ### PremiumGuard 위젯 사용
 ```dart
@@ -121,22 +126,22 @@ final isPremium = ref.watch(isPremiumProvider);
 월 수익 목표 (MAU 1,000명):
   전면 광고:    저장 3회당 1회 × CPM $3~5 = 월 $30~80
   리워드 광고:  PDF 요청 10% × CPM $15 = 월 $10~30
-  구독:        전환율 2% × $2.99 = 월 $60
-  합계:        월 $100~170
+  Lifetime PRO: 전환율 2% × $8.99 = 월 $180
+  합계:        월 $240~290
 
 MAU 10,000명 달성 시:
   전면 광고:    월 $300~800
   리워드 광고:  월 $100~300
-  구독:        월 $600
-  합계:        월 $1,000~1,700
+  Lifetime PRO: 월 $1,800
+  합계:        월 $2,200~2,900
 ```
 
 ---
 
-## 구독 복원 처리
+## 구매 복원 처리
 
 ```
-설정 화면에 "Restore Purchases" 버튼 필수
+설정 화면 + PRO 바텀시트에 "Restore Purchase" 버튼 필수
 (App Store 심사 요구사항)
 
 RevenueCat.restorePurchases() 호출

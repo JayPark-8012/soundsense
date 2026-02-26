@@ -4,6 +4,7 @@ import 'package:soundsense/core/database/measurement_session.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
 import 'package:soundsense/shared/constants/db_levels.dart';
+import 'package:soundsense/shared/extensions/l10n_extension.dart';
 
 /// 지도 마커 탭 시 표시되는 바텀시트
 /// 세션 핵심 정보 요약 + 상세 보기 이동
@@ -28,7 +29,7 @@ class MarkerInfoSheet extends StatelessWidget {
     final location = (session.locationName != null &&
             session.locationName!.trim().isNotEmpty)
         ? session.locationName!
-        : 'Unknown location';
+        : context.l10n.unknownLocation;
 
     return Container(
       decoration: const BoxDecoration(
@@ -208,7 +209,7 @@ class MarkerInfoSheet extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'View Details',
+                            context.l10n.viewDetails,
                             style: AppTextStyles.body.copyWith(
                               color: AppColors.textPrimary,
                               fontWeight: FontWeight.w600,

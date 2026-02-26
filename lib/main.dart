@@ -1,8 +1,12 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:isar/isar.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'package:soundsense/app.dart';
@@ -54,38 +58,60 @@ Future<void> _mainWeb() async {
   );
 }
 
-/// 모바일: 기존 로직 (Firebase + Isar)
+/// 모바일: 기존 로직 (Firebase + Isar + RevenueCat + AdMob)
 Future<void> _mainMobile() async {
-  debugPrint('🚀 [BOOT] 1/4 — Firebase 초기화 시작');
+  debugPrint('🚀 [BOOT] 1/6 — Firebase 초기화 시작');
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    debugPrint('🚀 [BOOT] 1/4 — Firebase 초기화 완료 ✓');
+    debugPrint('🚀 [BOOT] 1/6 — Firebase 초기화 완료 ✓');
   } catch (e) {
-    debugPrint('🚀 [BOOT] 1/4 — Firebase 초기화 실패: $e');
+    debugPrint('🚀 [BOOT] 1/6 — Firebase 초기화 실패: $e');
   }
 
-  debugPrint('🚀 [BOOT] 2/4 — Isar DB 초기화 시작');
+  debugPrint('🚀 [BOOT] 2/6 — Isar DB 초기화 시작');
   late final Isar isar;
   try {
     isar = await initIsar();
-    debugPrint('🚀 [BOOT] 2/4 — Isar DB 초기화 완료 ✓');
+    debugPrint('🚀 [BOOT] 2/6 — Isar DB 초기화 완료 ✓');
   } catch (e) {
-    debugPrint('🚀 [BOOT] 2/4 — Isar DB 초기화 실패: $e');
+    debugPrint('🚀 [BOOT] 2/6 — Isar DB 초기화 실패: $e');
     rethrow;
   }
 
-  debugPrint('🚀 [BOOT] 3/4 — 익명 인증 시작');
+  debugPrint('🚀 [BOOT] 3/6 — 익명 인증 시작');
   String? deviceId;
   try {
     deviceId = await ensureAnonymousAuth();
-    debugPrint('🚀 [BOOT] 3/4 — 익명 인증 완료 ✓ (id: $deviceId)');
+    debugPrint('🚀 [BOOT] 3/6 — 익명 인증 완료 ✓ (id: $deviceId)');
   } catch (e) {
-    debugPrint('🚀 [BOOT] 3/4 — 익명 인증 실패: $e');
+    debugPrint('🚀 [BOOT] 3/6 — 익명 인증 실패: $e');
   }
 
-  debugPrint('🚀 [BOOT] 4/4 — runApp 시작');
+  debugPrint('🚀 [BOOT] 4/6 — RevenueCat 초기화 시작');
+  try {
+    await Purchases.setLogLevel(LogLevel.debug);
+    final rcConfig = PurchasesConfiguration(
+      Platform.isIOS
+          ? 'test_yVVMbktkSopKkRUjiGPqvwGkDou'
+          : 'test_yVVMbktkSopKkRUjiGPqvwGkDou',
+    );
+    await Purchases.configure(rcConfig);
+    debugPrint('🚀 [BOOT] 4/6 — RevenueCat 초기화 완료 ✓');
+  } catch (e) {
+    debugPrint('🚀 [BOOT] 4/6 — RevenueCat 초기화 실패: $e');
+  }
+
+  debugPrint('🚀 [BOOT] 5/6 — AdMob 초기화 시작');
+  try {
+    await MobileAds.instance.initialize();
+    debugPrint('🚀 [BOOT] 5/6 — AdMob 초기화 완료 ✓');
+  } catch (e) {
+    debugPrint('🚀 [BOOT] 5/6 — AdMob 초기화 실패: $e');
+  }
+
+  debugPrint('🚀 [BOOT] 6/6 — runApp 시작');
   final prefs = await SharedPreferences.getInstance();
   final onboardingDone = prefs.getBool(kOnboardingDoneKey) ?? false;
 
@@ -99,5 +125,5 @@ Future<void> _mainMobile() async {
       child: const SoundSenseApp(),
     ),
   );
-  debugPrint('🚀 [BOOT] 4/4 — runApp 호출 완료 ✓');
+  debugPrint('🚀 [BOOT] 6/6 — runApp 호출 완료 ✓');
 }

@@ -45,6 +45,15 @@
 	<string>SoundSense measures noise levels using your microphone. No audio is recorded or stored.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Your location is used to tag measurements on the noise map.</string>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>cstr6suwn9.skadnetwork</string>
+		</dict>
+	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

@@ -9,10 +9,13 @@ import 'package:soundsense/core/database/measurement_session.dart';
 import 'package:soundsense/core/database/session_repository.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
+import 'package:soundsense/shared/extensions/l10n_extension.dart';
 import 'package:soundsense/core/permissions/location_permission.dart';
 import 'package:soundsense/features/history/providers/history_provider.dart';
 import 'package:soundsense/features/map/providers/map_provider.dart';
 import 'package:soundsense/shared/constants/db_levels.dart';
+import 'package:soundsense/shared/providers/premium_provider.dart';
+import 'package:soundsense/shared/services/ad_service.dart';
 
 /// 위치 태그 옵션
 enum _LocationOption {
@@ -31,6 +34,7 @@ class SaveSessionSheet extends ConsumerStatefulWidget {
     required this.minDb,
     required this.startedAt,
     required this.sampleCount,
+    required this.dbSamples,
   });
 
   final double avgDb;
@@ -38,6 +42,7 @@ class SaveSessionSheet extends ConsumerStatefulWidget {
   final double minDb;
   final DateTime startedAt;
   final int sampleCount;
+  final List<double> dbSamples;
 
   @override
   ConsumerState<SaveSessionSheet> createState() => _SaveSessionSheetState();
@@ -109,7 +114,7 @@ class _SaveSessionSheetState extends ConsumerState<SaveSessionSheet> {
             // ─── 제목 ───
             Center(
               child: Text(
-                '측정 완료! 💾',
+                context.l10n.measurementComplete,
                 style: AppTextStyles.cardTitle.copyWith(
                   color: AppColors.textPrimary,
                   fontSize: 22,
@@ -242,18 +247,12 @@ class _SaveSessionSheetState extends ConsumerState<SaveSessionSheet> {
     if (!_isMemoExpanded) {
       return GestureDetector(
         onTap: () => setState(() => _isMemoExpanded = true),
-        child: Row(
-          children: [
-            Icon(Icons.add_rounded, size: 18, color: AppColors.primary),
-            const SizedBox(width: 6),
-            Text(
-              'Add memo',
-              style: AppTextStyles.body.copyWith(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+        child: Text(
+          context.l10n.addMemo,
+          style: AppTextStyles.body.copyWith(
+            color: AppColors.primary,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       );
     }
@@ -262,7 +261,7 @@ class _SaveSessionSheetState extends ConsumerState<SaveSessionSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Memo',
+          context.l10n.memo,
           style: AppTextStyles.body.copyWith(
             color: AppColors.textPrimary,
             fontWeight: FontWeight.w600,
@@ -276,7 +275,7 @@ class _SaveSessionSheetState extends ConsumerState<SaveSessionSheet> {
           maxLength: 200,
           style: AppTextStyles.body.copyWith(color: AppColors.textPrimary),
           decoration: InputDecoration(
-            hintText: 'Add a note about this session...',
+            hintText: context.l10n.memoHint,
             hintStyle: AppTextStyles.body.copyWith(
               color: AppColors.textTertiary,
             ),
@@ -308,7 +307,7 @@ class _SaveSessionSheetState extends ConsumerState<SaveSessionSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Location Tag',
+          context.l10n.location,
           style: AppTextStyles.body.copyWith(
             color: AppColors.textPrimary,
             fontWeight: FontWeight.w600,
@@ -320,17 +319,17 @@ class _SaveSessionSheetState extends ConsumerState<SaveSessionSheet> {
         _buildLocationRadio(
           option: _LocationOption.current,
           icon: Icons.my_location_rounded,
-          label: 'Use current location',
+          label: context.l10n.currentLocation,
         ),
         _buildLocationRadio(
           option: _LocationOption.manual,
           icon: Icons.edit_location_alt_rounded,
-          label: 'Enter manually',
+          label: context.l10n.enterManually,
         ),
         _buildLocationRadio(
           option: _LocationOption.skip,
           icon: Icons.location_off_rounded,
-          label: 'Skip',
+          label: context.l10n.skip,
         ),
 
         // 현재 위치 가져오는 중 표시
@@ -349,7 +348,7 @@ class _SaveSessionSheetState extends ConsumerState<SaveSessionSheet> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Getting location...',
+                  context.l10n.gettingLocation,
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.textTertiary,
                   ),
@@ -380,7 +379,7 @@ class _SaveSessionSheetState extends ConsumerState<SaveSessionSheet> {
               controller: _locationNameController,
               style: AppTextStyles.body.copyWith(color: AppColors.textPrimary),
               decoration: InputDecoration(
-                hintText: 'e.g. Gangnam Station, Office...',
+                hintText: context.l10n.locationHint,
                 hintStyle: AppTextStyles.body.copyWith(
                   color: AppColors.textTertiary,
                 ),
@@ -548,7 +547,7 @@ class _SaveSessionSheetState extends ConsumerState<SaveSessionSheet> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Share to Noise Map',
+                  context.l10n.shareToMap,
                   style: AppTextStyles.body.copyWith(
                     color: hasLocation
                         ? AppColors.textPrimary
@@ -559,8 +558,8 @@ class _SaveSessionSheetState extends ConsumerState<SaveSessionSheet> {
                 const SizedBox(height: 2),
                 Text(
                   hasLocation
-                      ? 'Help others discover noise levels in your area'
-                      : 'Add location to enable sharing',
+                      ? context.l10n.shareToMapDesc
+                      : context.l10n.addLocationToShare,
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.textTertiary,
                   ),
@@ -622,7 +621,7 @@ class _SaveSessionSheetState extends ConsumerState<SaveSessionSheet> {
                       ),
                     )
                   : Text(
-                      '\u{1F4BE} 저장하기',
+                      context.l10n.saveSession,
                       key: const ValueKey('save'),
                       style: AppTextStyles.levelLabel.copyWith(
                         color: AppColors.textPrimary,
@@ -645,7 +644,7 @@ class _SaveSessionSheetState extends ConsumerState<SaveSessionSheet> {
           Navigator.of(context).pop(false);
         },
         child: Text(
-          '저장 안 함',
+          context.l10n.dontSave,
           style: AppTextStyles.caption.copyWith(
             color: AppColors.textTertiary,
           ),
@@ -691,7 +690,8 @@ class _SaveSessionSheetState extends ConsumerState<SaveSessionSheet> {
       ..latitude = lat
       ..longitude = lng
       ..locationName = locationName
-      ..isSharedToMap = _isSharedToMap;
+      ..isSharedToMap = _isSharedToMap
+      ..dbSamples = widget.dbSamples;
 
     try {
       final repo = ref.read(sessionRepositoryProvider);
@@ -715,6 +715,15 @@ class _SaveSessionSheetState extends ConsumerState<SaveSessionSheet> {
           _isSaving = false;
           _isSaved = true;
         });
+
+        // ─── 전면 광고 (3회 저장마다, PRO 제외) ───
+        final adService = ref.read(adServiceProvider);
+        final isPremium = ref.read(isPremiumProvider);
+        final shouldShowAd = await adService.incrementSaveAndCheckAd();
+        if (shouldShowAd && !isPremium) {
+          await adService.showInterstitialAd();
+        }
+
         // 체크 아이콘 애니메이션 후 닫기
         await Future.delayed(const Duration(milliseconds: 600));
         if (mounted) Navigator.of(context).pop(true);
@@ -726,7 +735,7 @@ class _SaveSessionSheetState extends ConsumerState<SaveSessionSheet> {
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save session: $e'),
+            content: Text(context.l10n.failedToSaveSession),
             backgroundColor: AppColors.error,
           ),
         );

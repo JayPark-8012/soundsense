@@ -30,4 +30,7 @@ class MeasurementSession {
   // ─── 지도 공유 ───
   bool isSharedToMap = false; // 기본 false
   String? firestoreId; // 공유 시 Firestore 문서 ID (삭제 요청용)
+
+  // ─── 시계열 데이터 ───
+  List<double> dbSamples = []; // 1초 간격 dB 샘플 (Timeline Chart용)
 }

@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // ─── SharedPreferences 키 ───
 const _k85dbAlert = 'is85dbAlertOn';
-const _kWeeklyReport = 'isWeeklyReportOn';
 const _kLocale = 'selectedLocale';
 
 // ─── 85dB 경고 알림 토글 ───
@@ -13,14 +12,6 @@ const _kLocale = 'selectedLocale';
 final is85dbAlertProvider =
     NotifierProvider<_BoolSettingNotifier, bool>(() {
   return _BoolSettingNotifier(key: _k85dbAlert, defaultValue: true);
-});
-
-// ─── 주간 리포트 토글 ───
-
-/// 주간 리포트 알림 (기본 false)
-final isWeeklyReportProvider =
-    NotifierProvider<_BoolSettingNotifier, bool>(() {
-  return _BoolSettingNotifier(key: _kWeeklyReport, defaultValue: false);
 });
 
 // ─── 언어 설정 ───

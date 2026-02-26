@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -14,12 +13,13 @@ import 'package:share_plus/share_plus.dart';
 import 'package:soundsense/core/database/measurement_session.dart';
 import 'package:soundsense/core/database/session_repository.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
+import 'package:soundsense/features/history/providers/history_provider.dart';
+import 'package:soundsense/features/map/providers/map_provider.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
-import 'package:soundsense/shared/constants/app_constants.dart';
 import 'package:soundsense/shared/constants/db_levels.dart';
 import 'package:soundsense/shared/providers/premium_provider.dart';
 import 'package:soundsense/shared/widgets/noise_card_generator.dart';
-import 'package:soundsense/shared/widgets/premium_bottom_sheet.dart';
+import 'package:soundsense/shared/extensions/l10n_extension.dart';
 import 'package:soundsense/shared/widgets/premium_guard.dart';
 
 /// 세션 상세 Provider — ID로 세션 조회
@@ -31,18 +31,26 @@ final _sessionDetailProvider =
 
 /// 세션 상세 화면 — 화면 4
 /// 앱바(장소/날짜) + 날짜시간 + AVG/MAX/MIN 카드 + 분포바 + 메모 + 위치 + 버튼
-class SessionDetailScreen extends ConsumerWidget {
+class SessionDetailScreen extends ConsumerStatefulWidget {
   const SessionDetailScreen({super.key, required this.sessionId});
 
   final String sessionId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final id = int.tryParse(sessionId);
+  ConsumerState<SessionDetailScreen> createState() =>
+      _SessionDetailScreenState();
+}
+
+class _SessionDetailScreenState extends ConsumerState<SessionDetailScreen> {
+  bool _isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final id = int.tryParse(widget.sessionId);
     if (id == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Session Detail')),
-        body: const Center(child: Text('Invalid session ID')),
+        appBar: AppBar(title: Text(context.l10n.sessionDetail)),
+        body: Center(child: Text(context.l10n.invalidSessionId)),
       );
     }
 
@@ -52,10 +60,10 @@ class SessionDetailScreen extends ConsumerWidget {
       data: (session) {
         if (session == null) {
           return Scaffold(
-            appBar: AppBar(title: const Text('Session Detail')),
+            appBar: AppBar(title: Text(context.l10n.sessionDetail)),
             body: Center(
               child: Text(
-                'Session not found',
+                context.l10n.sessionNotFound,
                 style: AppTextStyles.body
                     .copyWith(color: AppColors.textSecondary),
               ),
@@ -65,16 +73,16 @@ class SessionDetailScreen extends ConsumerWidget {
         return _buildDetail(context, ref, session);
       },
       loading: () => Scaffold(
-        appBar: AppBar(title: const Text('Session Detail')),
+        appBar: AppBar(title: Text(context.l10n.sessionDetail)),
         body: const Center(
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
       ),
       error: (_, _) => Scaffold(
-        appBar: AppBar(title: const Text('Session Detail')),
+        appBar: AppBar(title: Text(context.l10n.sessionDetail)),
         body: Center(
           child: Text(
-            'Failed to load session',
+            context.l10n.failedToLoadSession,
             style:
                 AppTextStyles.body.copyWith(color: AppColors.textSecondary),
           ),
@@ -89,11 +97,6 @@ class SessionDetailScreen extends ConsumerWidget {
     WidgetRef ref,
     MeasurementSession session,
   ) {
-    final isPremium = ref.watch(isPremiumProvider);
-    final isOld = DateTime.now().difference(session.startedAt).inDays >
-        AppConstants.freeHistoryLimitDays;
-    final isLocked = isOld && !isPremium;
-
     final level = DbLevel.fromDb(session.avgDb);
     final dt = session.startedAt;
     final dateText =
@@ -134,146 +137,54 @@ class SessionDetailScreen extends ConsumerWidget {
         ],
         const SizedBox(height: 24),
         PremiumGuard(
-          featureName: 'Timeline Chart',
+          featureName: context.l10n.timelineChart,
           lockedChild: _buildLockedTimelineChart(),
           child: _buildTimelineChartPro(session),
         ),
         const SizedBox(height: 24),
         PremiumGuard(
-          featureName: 'CSV Export',
+          featureName: context.l10n.exportCsv,
           lockedChild: _buildLockedCsvExport(),
-          child: _buildCsvExportPro(session),
+          child: _buildCsvExportPro(context, session),
         ),
         const SizedBox(height: 24),
         _buildActionButtons(context, ref, session),
       ],
     );
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(appBarTitle),
-        centerTitle: true,
-        actions: [
-          if (!isLocked)
-            IconButton(
-              onPressed: () => _onNoiseCard(context, ref, session),
-              icon: const Icon(Icons.style_outlined),
-              tooltip: 'Noise Card',
-            ),
-          IconButton(
-            onPressed: () => _onShare(session),
-            icon: const Icon(Icons.share_outlined),
-            tooltip: 'Share',
-          ),
-        ],
-      ),
-      body: isLocked
-          ? Column(
-              children: [
-                // ─── PRO 배너 ───
-                _buildProBanner(context),
-                // ─── 블러 + 흐린 콘텐츠 ───
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => PremiumBottomSheet.show(
-                      context,
-                      featureName: 'Full History',
-                    ),
-                    child: ClipRect(
-                      child: ImageFiltered(
-                        imageFilter:
-                            ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-                        child: Opacity(
-                          opacity: 0.4,
-                          child: SingleChildScrollView(
-                            physics:
-                                const NeverScrollableScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(
-                                16, 16, 16, 32),
-                            child: bodyContent,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            )
-          : SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-              child: bodyContent,
-            ),
-    );
-  }
-
-  /// PRO 배너 — 무료 유저 + 7일 이후 세션
-  Widget _buildProBanner(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.proGold.withValues(alpha: 0.15),
-            AppColors.proGold.withValues(alpha: 0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.proGold.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text('\u{1F451}', style: TextStyle(fontSize: 20)),
-              const SizedBox(width: 8),
-              Text(
-                'PRO Feature',
-                style: AppTextStyles.cardTitle.copyWith(
-                  color: AppColors.proGold,
-                  fontWeight: FontWeight.w700,
-                ),
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            title: Text(appBarTitle),
+            centerTitle: true,
+            actions: [
+              IconButton(
+                onPressed: () => _onNoiseCard(context, ref, session),
+                icon: const Icon(Icons.style_outlined),
+                tooltip: context.l10n.noiseCard,
+              ),
+              IconButton(
+                onPressed: () => _onShare(session),
+                icon: const Icon(Icons.share_outlined),
+                tooltip: context.l10n.share,
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Unlock full history with PRO',
-            style: AppTextStyles.body.copyWith(
-              color: AppColors.textSecondary,
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+            child: bodyContent,
+          ),
+        ),
+        // ─── 로딩 오버레이 (Noise Card 생성 중) ───
+        if (_isLoading)
+          const ColoredBox(
+            color: Color(0x88000000),
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
             ),
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => PremiumBottomSheet.show(
-                context,
-                featureName: 'Full History',
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.proGold,
-                foregroundColor: AppColors.background,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              child: Text(
-                'Start Free Trial',
-                style: AppTextStyles.body.copyWith(
-                  color: AppColors.background,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -351,7 +262,7 @@ class SessionDetailScreen extends ConsumerWidget {
       children: [
         Expanded(
           child: _buildDbCard(
-            label: 'AVG',
+            label: context.l10n.avgLabel,
             value: session.avgDb,
             color: level.color,
             isMain: true,
@@ -360,7 +271,7 @@ class SessionDetailScreen extends ConsumerWidget {
         const SizedBox(width: 10),
         Expanded(
           child: _buildDbCard(
-            label: 'MAX',
+            label: context.l10n.maxLabel,
             value: session.maxDb,
             color: AppColors.levelDanger,
           ),
@@ -368,7 +279,7 @@ class SessionDetailScreen extends ConsumerWidget {
         const SizedBox(width: 10),
         Expanded(
           child: _buildDbCard(
-            label: 'MIN',
+            label: context.l10n.minLabel,
             value: session.minDb,
             color: AppColors.levelSilent,
           ),
@@ -437,7 +348,7 @@ class SessionDetailScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Noise Distribution',
+            context.l10n.noiseDistribution,
             style: AppTextStyles.body.copyWith(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w600,
@@ -498,7 +409,7 @@ class SessionDetailScreen extends ConsumerWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                'Memo',
+                context.l10n.memo,
                 style: AppTextStyles.body.copyWith(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.w600,
@@ -521,11 +432,11 @@ class SessionDetailScreen extends ConsumerWidget {
   /// 레벨 평가 텍스트 — DbLevel별 코멘트
   Widget _buildLevelEvaluation(DbLevel level) {
     final (text, emoji) = switch (level) {
-      DbLevel.silent => ('Very peaceful environment', '🔵'),
-      DbLevel.quiet => ('Comfortable noise level', '🟢'),
-      DbLevel.moderate => ('Normal everyday noise', '🟡'),
-      DbLevel.loud => ('Prolonged exposure may cause fatigue', '🟠'),
-      DbLevel.danger => ('⚠️ Risk of hearing damage with prolonged exposure', '🔴'),
+      DbLevel.silent => (context.l10n.evalSilent, '🔵'),
+      DbLevel.quiet => (context.l10n.evalQuiet, '🟢'),
+      DbLevel.moderate => (context.l10n.evalModerate, '🟡'),
+      DbLevel.loud => (context.l10n.evalLoud, '🟠'),
+      DbLevel.danger => (context.l10n.evalDanger, '🔴'),
     };
 
     return Container(
@@ -558,14 +469,14 @@ class SessionDetailScreen extends ConsumerWidget {
   Widget _buildSafeExposureTime(double avgDb) {
     final String safeText;
     if (avgDb < 85) {
-      safeText = 'Safe for extended exposure';
+      safeText = context.l10n.safeForExtendedExposure;
     } else {
       final hours = 8.0 / math.pow(2, (avgDb - 85) / 3);
       if (hours >= 1) {
-        safeText = '${hours.toStringAsFixed(1)} hours';
+        safeText = context.l10n.safeHours(hours.toStringAsFixed(1));
       } else {
         final minutes = (hours * 60).round();
-        safeText = '$minutes min';
+        safeText = context.l10n.safeMinutes(minutes.toString());
       }
     }
 
@@ -592,7 +503,7 @@ class SessionDetailScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Safe Exposure Time (WHO)',
+                  context.l10n.safeExposureTime,
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.textTertiary,
                   ),
@@ -646,7 +557,7 @@ class SessionDetailScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Level Distribution',
+            context.l10n.levelDistribution,
             style: AppTextStyles.body.copyWith(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w600,
@@ -790,7 +701,7 @@ class SessionDetailScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    session.locationName ?? 'Location recorded',
+                    session.locationName ?? context.l10n.locationRecorded,
                     style: AppTextStyles.body.copyWith(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.w500,
@@ -821,7 +732,7 @@ class SessionDetailScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    'Shared',
+                    context.l10n.sharedBadge,
                     style: AppTextStyles.caption.copyWith(
                       color: AppColors.success,
                       fontWeight: FontWeight.w600,
@@ -881,7 +792,7 @@ class SessionDetailScreen extends ConsumerWidget {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Timeline Chart',
+                        context.l10n.timelineChart,
                         style: AppTextStyles.body.copyWith(
                           color: AppColors.textPrimary,
                           fontWeight: FontWeight.w600,
@@ -897,7 +808,7 @@ class SessionDetailScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Available in PRO',
+                    context.l10n.availableInPro,
                     style: AppTextStyles.body.copyWith(
                       color: AppColors.proGold,
                       fontWeight: FontWeight.w500,
@@ -914,7 +825,7 @@ class SessionDetailScreen extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      'Unlock with PRO',
+                      context.l10n.unlockPro,
                       style: AppTextStyles.caption.copyWith(
                         color: AppColors.proGold,
                         fontWeight: FontWeight.w700,
@@ -930,10 +841,58 @@ class SessionDetailScreen extends ConsumerWidget {
     );
   }
 
-  /// PRO — 시간대별 라인 차트 (child, 미구현 플레이스홀더)
+  /// PRO — 시간대별 라인 차트 (fl_chart LineChart)
   Widget _buildTimelineChartPro(MeasurementSession session) {
+    final samples = session.dbSamples;
+
+    // 샘플 없는 이전 세션 → 안내 메시지
+    if (samples.isEmpty) {
+      return Container(
+        height: 200,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.divider),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.l10n.timelineChart,
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Spacer(),
+            Center(
+              child: Text(
+                context.l10n.noTimelineData,
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textTertiary,
+                ),
+              ),
+            ),
+            const Spacer(),
+          ],
+        ),
+      );
+    }
+
+    // 차트 데이터 포인트 생성
+    final spots = <FlSpot>[];
+    for (int i = 0; i < samples.length; i++) {
+      spots.add(FlSpot(i.toDouble(), samples[i]));
+    }
+
+    // Y축 범위 계산
+    final minY = (session.minDb - 5).clamp(0.0, 130.0);
+    final maxY = (session.maxDb + 5).clamp(0.0, 130.0);
+    final level = DbLevel.fromDb(session.avgDb);
+
     return Container(
-      height: 200,
+      height: 240,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.card,
@@ -943,23 +902,116 @@ class SessionDetailScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Timeline Chart',
-            style: AppTextStyles.body.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            children: [
+              Text(
+                context.l10n.timelineChart,
+                style: AppTextStyles.body.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${samples.length}s',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textTertiary,
+                ),
+              ),
+            ],
           ),
-          const Spacer(),
-          Center(
-            child: Text(
-              'Timeline data will appear here',
-              style: AppTextStyles.caption.copyWith(
-                color: AppColors.textTertiary,
+          const SizedBox(height: 16),
+          Expanded(
+            child: LineChart(
+              LineChartData(
+                minY: minY,
+                maxY: maxY,
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: (maxY - minY) / 4,
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: AppColors.divider.withValues(alpha: 0.5),
+                    strokeWidth: 0.5,
+                  ),
+                ),
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 36,
+                      interval: (maxY - minY) / 4,
+                      getTitlesWidget: (value, meta) => Text(
+                        value.toInt().toString(),
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.textTertiary,
+                          fontSize: 9,
+                        ),
+                      ),
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 20,
+                      interval: math.max(1, (samples.length / 5).roundToDouble()),
+                      getTitlesWidget: (value, meta) {
+                        final sec = value.toInt();
+                        if (sec >= samples.length) return const SizedBox.shrink();
+                        final m = sec ~/ 60;
+                        final s = sec % 60;
+                        final label = m > 0 ? '${m}m${s}s' : '${s}s';
+                        return Text(
+                          label,
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.textTertiary,
+                            fontSize: 9,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    curveSmoothness: 0.2,
+                    color: level.color,
+                    barWidth: 2,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: level.color.withValues(alpha: 0.1),
+                    ),
+                  ),
+                ],
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (_) => AppColors.surface,
+                    getTooltipItems: (touchedSpots) => touchedSpots
+                        .map((spot) => LineTooltipItem(
+                              '${spot.y.toStringAsFixed(1)} dB',
+                              TextStyle(
+                                color: level.color,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            ))
+                        .toList(),
+                  ),
+                ),
               ),
             ),
           ),
-          const Spacer(),
         ],
       ),
     );
@@ -989,7 +1041,7 @@ class SessionDetailScreen extends ConsumerWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              'Export CSV',
+              context.l10n.exportCsv,
               style: AppTextStyles.body.copyWith(
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w500,
@@ -1003,7 +1055,7 @@ class SessionDetailScreen extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                'PRO',
+                context.l10n.pro,
                 style: AppTextStyles.caption.copyWith(
                   color: AppColors.proGold,
                   fontWeight: FontWeight.w700,
@@ -1017,16 +1069,14 @@ class SessionDetailScreen extends ConsumerWidget {
     );
   }
 
-  /// PRO — CSV 내보내기 (child, 미구현 플레이스홀더)
-  Widget _buildCsvExportPro(MeasurementSession session) {
+  /// PRO — CSV 내보내기
+  Widget _buildCsvExportPro(BuildContext context, MeasurementSession session) {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
-        onPressed: () {
-          // TODO: CSV 내보내기 구현
-        },
+        onPressed: () => _onExportCsv(context, session),
         icon: const Icon(Icons.file_download_outlined, size: 18),
-        label: const Text('Export CSV'),
+        label: Text(context.l10n.exportCsv),
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.textPrimary,
           side: const BorderSide(color: AppColors.divider),
@@ -1037,6 +1087,54 @@ class SessionDetailScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  /// CSV 파일 생성 + 시스템 공유시트
+  void _onExportCsv(BuildContext context, MeasurementSession session) async {
+    final shareText = context.l10n.noiseShareText;
+    final failedText = context.l10n.failedToExportCsv;
+    try {
+      final buffer = StringBuffer();
+      buffer.writeln('time_seconds,db_value,level');
+
+      if (session.dbSamples.isNotEmpty) {
+        for (int i = 0; i < session.dbSamples.length; i++) {
+          final db = session.dbSamples[i];
+          final level = DbLevel.fromDb(db).labelEn;
+          buffer.writeln('$i,${db.toStringAsFixed(1)},$level');
+        }
+      } else {
+        // 이전 세션 (샘플 없음) → 요약 데이터
+        buffer.writeln('0,${session.avgDb.toStringAsFixed(1)},${DbLevel.fromDb(session.avgDb).labelEn}');
+      }
+
+      final dir = await getTemporaryDirectory();
+      final dt = session.startedAt;
+      final fileName = 'soundsense_'
+          '${dt.year}${dt.month.toString().padLeft(2, '0')}${dt.day.toString().padLeft(2, '0')}_'
+          '${dt.hour.toString().padLeft(2, '0')}${dt.minute.toString().padLeft(2, '0')}.csv';
+      final file = File('${dir.path}/$fileName');
+      await file.writeAsString(buffer.toString());
+
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: shareText,
+      );
+    } catch (e) {
+      debugPrint('CSV export error: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(failedText),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   /// Share / Delete 버튼
@@ -1052,7 +1150,7 @@ class SessionDetailScreen extends ConsumerWidget {
           child: OutlinedButton.icon(
             onPressed: () => _onShare(session),
             icon: const Icon(Icons.share_outlined, size: 18),
-            label: const Text('Share'),
+            label: Text(context.l10n.share),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.textPrimary,
               side: const BorderSide(color: AppColors.divider),
@@ -1071,7 +1169,7 @@ class SessionDetailScreen extends ConsumerWidget {
             icon: Icon(Icons.delete_outline_rounded,
                 size: 18, color: AppColors.error),
             label: Text(
-              'Delete',
+              context.l10n.deleteSession,
               style: TextStyle(color: AppColors.error),
             ),
             style: OutlinedButton.styleFrom(
@@ -1089,55 +1187,55 @@ class SessionDetailScreen extends ConsumerWidget {
   }
 
   /// Noise Card 생성 + 미리보기
-  void _onNoiseCard(
+  Future<void> _onNoiseCard(
     BuildContext context,
     WidgetRef ref,
     MeasurementSession session,
   ) async {
-    final isPremium = ref.read(isPremiumProvider);
-
-    // 로딩 표시
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      ),
-    );
-
+    final failedText = context.l10n.failedToGenerateCard;
+    if (mounted) setState(() => _isLoading = true);
     try {
+      final isPremium = ref.read(isPremiumProvider);
       final bytes = await NoiseCardGenerator.generate(
         session,
         isPremium: isPremium,
       );
 
-      if (!context.mounted) return;
-      Navigator.of(context).pop(); // 로딩 닫기
+      if (!mounted) return;
 
-      _showNoiseCardPreview(context, bytes);
+      // 다이얼로그 닫힐 때까지 대기 → finally에서 로딩 해제 보장
+      await _showNoiseCardPreview(this.context, bytes);
     } catch (e) {
-      if (!context.mounted) return;
-      Navigator.of(context).pop(); // 로딩 닫기
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Failed to generate card'),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+      debugPrint('NoiseCard error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(this.context).showSnackBar(
+          SnackBar(
+            content: Text(failedText),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
-        ),
-      );
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   /// Noise Card 미리보기 다이얼로그
-  void _showNoiseCardPreview(BuildContext context, Uint8List bytes) {
+  Future<void> _showNoiseCardPreview(BuildContext context, Uint8List bytes) {
+    final savedText = context.l10n.savedToPhotos;
+    final failedSaveText = context.l10n.failedToSave;
+    final savingText = context.l10n.saving;
+    final sharingText = context.l10n.sharing;
     bool isSaving = false;
     bool isSharing = false;
 
-    showDialog(
+    return showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (_) => StatefulBuilder(
         builder: (ctx, setDialogState) => Dialog(
           backgroundColor: AppColors.card,
@@ -1177,7 +1275,7 @@ class SessionDetailScreen extends ConsumerWidget {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: const Text('Saved to Photos'),
+                                      content: Text(savedText),
                                       backgroundColor: AppColors.success,
                                       behavior: SnackBarBehavior.floating,
                                       shape: RoundedRectangleBorder(
@@ -1193,7 +1291,7 @@ class SessionDetailScreen extends ConsumerWidget {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: const Text('Failed to save'),
+                                      content: Text(failedSaveText),
                                       backgroundColor: AppColors.error,
                                       behavior: SnackBarBehavior.floating,
                                       shape: RoundedRectangleBorder(
@@ -1219,7 +1317,7 @@ class SessionDetailScreen extends ConsumerWidget {
                               ),
                             )
                           : const Icon(Icons.save_alt_rounded, size: 18),
-                      label: Text(isSaving ? 'Saving...' : 'Save to Photos'),
+                      label: Text(isSaving ? savingText : context.l10n.saveToPhotos),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.textPrimary,
@@ -1242,6 +1340,7 @@ class SessionDetailScreen extends ConsumerWidget {
                     onPressed: isSharing
                         ? null
                         : () async {
+                            final shareText = context.l10n.measuredWith;
                             setDialogState(() => isSharing = true);
                             try {
                               final dir = await getTemporaryDirectory();
@@ -1251,7 +1350,7 @@ class SessionDetailScreen extends ConsumerWidget {
                               await file.writeAsBytes(bytes);
                               await Share.shareXFiles(
                                 [XFile(file.path)],
-                                text: 'Measured with SoundSense',
+                                text: shareText,
                               );
                             } catch (e) {
                               debugPrint('Share error: $e');
@@ -1271,7 +1370,7 @@ class SessionDetailScreen extends ConsumerWidget {
                             ),
                           )
                         : const Icon(Icons.share_outlined, size: 18),
-                    label: Text(isSharing ? 'Sharing...' : 'Share'),
+                    label: Text(isSharing ? sharingText : context.l10n.share),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.textPrimary,
                       disabledForegroundColor: AppColors.textPrimary,
@@ -1289,7 +1388,7 @@ class SessionDetailScreen extends ConsumerWidget {
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
                   child: Text(
-                    'Close',
+                    context.l10n.close,
                     style: TextStyle(color: AppColors.textTertiary),
                   ),
                 ),
@@ -1309,18 +1408,18 @@ class SessionDetailScreen extends ConsumerWidget {
         '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')}';
 
     final text = StringBuffer()
-      ..writeln('SoundSense - Noise Report')
-      ..writeln('Date: $dateText')
-      ..writeln('Level: ${level.labelEn}')
-      ..writeln('AVG: ${session.avgDb.toStringAsFixed(1)} dB')
-      ..writeln('MAX: ${session.maxDb.toStringAsFixed(1)} dB')
-      ..writeln('MIN: ${session.minDb.toStringAsFixed(1)} dB');
+      ..writeln(context.l10n.shareNoiseReport)
+      ..writeln(context.l10n.shareDate(dateText))
+      ..writeln(context.l10n.shareLevel(level.labelEn))
+      ..writeln(context.l10n.shareAvg(session.avgDb.toStringAsFixed(1)))
+      ..writeln(context.l10n.shareMax(session.maxDb.toStringAsFixed(1)))
+      ..writeln(context.l10n.shareMin(session.minDb.toStringAsFixed(1)));
 
     if (session.locationName != null) {
-      text.writeln('Location: ${session.locationName}');
+      text.writeln(context.l10n.shareLocationLabel(session.locationName!));
     }
     if (session.memo != null && session.memo!.isNotEmpty) {
-      text.writeln('Memo: ${session.memo}');
+      text.writeln(context.l10n.shareMemoLabel(session.memo!));
     }
 
     Share.share(text.toString());
@@ -1340,14 +1439,13 @@ class SessionDetailScreen extends ConsumerWidget {
           borderRadius: BorderRadius.circular(16),
         ),
         title: Text(
-          'Delete Session',
+          context.l10n.deleteConfirm,
           style: AppTextStyles.cardTitle.copyWith(
             color: AppColors.textPrimary,
           ),
         ),
         content: Text(
-          'This session will be permanently deleted. '
-          'This action cannot be undone.',
+          context.l10n.deleteConfirmDesc,
           style: AppTextStyles.body.copyWith(
             color: AppColors.textSecondary,
           ),
@@ -1356,7 +1454,7 @@ class SessionDetailScreen extends ConsumerWidget {
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: Text(
-              'Cancel',
+              context.l10n.cancel,
               style: TextStyle(color: AppColors.textTertiary),
             ),
           ),
@@ -1365,12 +1463,17 @@ class SessionDetailScreen extends ConsumerWidget {
               Navigator.of(ctx).pop();
               final repo = ref.read(sessionRepositoryProvider);
               await repo.deleteSession(session.id);
+              // 히스토리 + 지도 Provider 갱신
+              ref.invalidate(sessionListProvider);
+              ref.invalidate(weeklyChartProvider);
+              ref.invalidate(mapSessionsProvider);
+              ref.invalidate(mapMarkersProvider);
               if (context.mounted) {
                 context.go('/history');
               }
             },
             child: Text(
-              'Delete',
+              context.l10n.deleteSession,
               style: TextStyle(
                 color: AppColors.error,
                 fontWeight: FontWeight.w600,

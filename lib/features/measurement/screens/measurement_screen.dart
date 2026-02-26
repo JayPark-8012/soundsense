@@ -16,6 +16,7 @@ import 'package:soundsense/features/measurement/widgets/waveform_visualizer.dart
 import 'package:soundsense/features/measurement/screens/save_session_sheet.dart';
 import 'package:soundsense/shared/constants/app_constants.dart';
 import 'package:soundsense/shared/constants/db_levels.dart';
+import 'package:soundsense/shared/extensions/l10n_extension.dart';
 import 'package:soundsense/shared/utils/haptic_utils.dart';
 
 /// 측정 화면 — 전면 재구성
@@ -92,7 +93,7 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
       extendBodyBehindAppBar: true,
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('SoundSense'),
+        title: Text(context.l10n.appName),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -120,6 +121,10 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
   /// 세션 저장 바텀시트 표시 — 측정 일시정지 후 시트 열기
   void _showSaveSheet(MeasurementState state) {
     final notifier = ref.read(measurementProvider.notifier);
+
+    // dbSamples를 pause/reset 전에 복사
+    final dbSamples = List<double>.from(notifier.dbSamples);
+
     if (state is MeasurementActive) {
       notifier.pause();
     }
@@ -156,6 +161,7 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
         minDb: minDb,
         startedAt: startedAt,
         sampleCount: sampleCount,
+        dbSamples: dbSamples,
       ),
     ).then((saved) {
       notifier.reset();
@@ -217,7 +223,7 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              'Microphone Access Required',
+              context.l10n.micAccessRequired,
               style: AppTextStyles.cardTitle.copyWith(
                 color: AppColors.textPrimary,
               ),
@@ -226,8 +232,8 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
             const SizedBox(height: 12),
             Text(
               isPermanent
-                  ? 'Microphone access was permanently denied.\nPlease enable it in your device settings.'
-                  : 'SoundSense needs microphone access\nto measure noise levels.',
+                  ? context.l10n.micPermDeniedPermanent
+                  : context.l10n.micPermNeeded,
               style: AppTextStyles.body,
               textAlign: TextAlign.center,
             ),
@@ -251,7 +257,7 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
                   isPermanent ? Icons.settings_rounded : Icons.mic_rounded,
                 ),
                 label: Text(
-                  isPermanent ? 'Open Settings' : 'Allow Microphone',
+                  isPermanent ? context.l10n.openSettings : context.l10n.allowMicrophone,
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
@@ -385,7 +391,7 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
     }
 
     final db = state.currentDb;
-    final text = _getSafeExposureText(db);
+    final text = _getSafeExposureText(db, context);
     final isSafe = db < AppConstants.dangerThresholdDb;
 
     return AnimatedSwitcher(
@@ -405,8 +411,8 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
   }
 
   /// WHO 기준 안전 노출 시간 계산
-  String _getSafeExposureText(double db) {
-    if (db < 85) return 'Safe for extended exposure \u{1F7E2}';
+  String _getSafeExposureText(double db, BuildContext context) {
+    if (db < 85) return context.l10n.safeForExtended;
 
     // WHO: 85dB=8h, 매 3dB 증가마다 시간 반감
     final hours = 8.0 / math.pow(2, (db - 85) / 3);
@@ -414,15 +420,15 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
       final h = hours.floor();
       final m = ((hours - h) * 60).round();
       if (m > 0) {
-        return '\u26A0\uFE0F Safe exposure: ${h}h ${m}m remaining';
+        return '\u26A0\uFE0F ${context.l10n.safeExposure('${h}h ${m}m')}';
       }
-      return '\u26A0\uFE0F Safe exposure: ${h}h remaining';
+      return '\u26A0\uFE0F ${context.l10n.safeExposure('${h}h')}';
     }
     final minutes = (hours * 60).round();
     if (minutes > 0) {
-      return '\u26A0\uFE0F Safe exposure: ${minutes}m remaining';
+      return '\u26A0\uFE0F ${context.l10n.safeExposure('${minutes}m')}';
     }
-    return '\u26A0\uFE0F Immediate hearing risk!';
+    return '\u26A0\uFE0F ${context.l10n.immediateHearingRisk}';
   }
 
   // ─── Fast/Slow 토글 ───
@@ -435,7 +441,7 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         _buildModeButton(
-          label: 'Fast',
+          label: context.l10n.responseFast,
           isSelected: mode == ResponseMode.fast,
           onTap: () {
             notifier.setResponseMode(ResponseMode.fast);
@@ -444,7 +450,7 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
         ),
         const SizedBox(width: 8),
         _buildModeButton(
-          label: 'Slow',
+          label: context.l10n.responseSlow,
           isSelected: mode == ResponseMode.slow,
           onTap: () {
             notifier.setResponseMode(ResponseMode.slow);
@@ -515,7 +521,7 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
                     size: 22,
                   ),
                   label: Text(
-                    isActive ? 'Stop & Save' : 'Start Measuring',
+                    isActive ? context.l10n.stopAndSave : context.l10n.startMeasuring,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -624,21 +630,21 @@ class _MeasurementScreenState extends ConsumerState<MeasurementScreen> {
     return Row(
       children: [
         _buildStatCard(
-          label: 'MIN',
+          label: context.l10n.minLabel,
           value: hasData ? minDb.toStringAsFixed(1) : '--',
           icon: Icons.arrow_downward_rounded,
           color: AppColors.levelSilent,
         ),
         const SizedBox(width: 12),
         _buildStatCard(
-          label: 'AVG',
+          label: context.l10n.avgLabel,
           value: hasData ? avgDb.toStringAsFixed(1) : '--',
           icon: Icons.horizontal_rule_rounded,
           color: AppColors.levelModerate,
         ),
         const SizedBox(width: 12),
         _buildStatCard(
-          label: 'MAX',
+          label: context.l10n.maxLabel,
           value: hasData ? maxDb.toStringAsFixed(1) : '--',
           icon: Icons.arrow_upward_rounded,
           color: AppColors.levelDanger,

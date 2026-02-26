@@ -6,7 +6,7 @@ import 'package:soundsense/core/theme/app_text_styles.dart';
 import 'package:soundsense/features/history/providers/history_provider.dart';
 import 'package:soundsense/features/history/widgets/session_card.dart';
 import 'package:soundsense/features/history/widgets/weekly_bar_chart.dart';
-import 'package:soundsense/shared/constants/app_constants.dart';
+import 'package:soundsense/shared/extensions/l10n_extension.dart';
 import 'package:soundsense/shared/providers/premium_provider.dart';
 import 'package:soundsense/shared/widgets/premium_bottom_sheet.dart';
 
@@ -24,7 +24,7 @@ class HistoryScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('History'),
+        title: Text(context.l10n.historyTitle),
         centerTitle: true,
       ),
       body: RefreshIndicator(
@@ -51,7 +51,7 @@ class HistoryScreen extends ConsumerWidget {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildFilterTabs(ref, filter, isPremium),
+                child: _buildFilterTabs(context, ref, filter, isPremium),
               ),
             ),
 
@@ -72,57 +72,7 @@ class HistoryScreen extends ConsumerWidget {
                   sliver: SliverList.builder(
                     itemCount: sessions.length,
                     itemBuilder: (context, index) {
-                      final session = sessions[index];
-                      final isOld = DateTime.now()
-                              .difference(session.startedAt)
-                              .inDays >
-                          AppConstants.freeHistoryLimitDays;
-
-                      // 7일 이내 또는 PRO → 정상 표시
-                      if (!isOld) {
-                        return SessionCard(session: session);
-                      }
-
-                      // 7일 이후: 흐리게 + 🔒 + 탭 분기
-                      return GestureDetector(
-                        onTap: () {
-                          if (isPremium) {
-                            context.go('/history/${session.id}');
-                          } else {
-                            PremiumBottomSheet.show(
-                              context,
-                              featureName: 'Full History',
-                            );
-                          }
-                        },
-                        child: AbsorbPointer(
-                          child: Opacity(
-                            opacity: 0.85,
-                            child: Stack(
-                              children: [
-                                SessionCard(session: session),
-                                Positioned(
-                                  top: 10,
-                                  right: 26,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.surface,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      Icons.lock_outline_rounded,
-                                      size: 12,
-                                      color: AppColors.proGold
-                                          .withValues(alpha: 0.7),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
+                      return SessionCard(session: sessions[index]);
                     },
                   ),
                 );
@@ -146,7 +96,7 @@ class HistoryScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Failed to load sessions',
+                        context.l10n.failedToLoadSessions,
                         style: AppTextStyles.body.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -165,50 +115,61 @@ class HistoryScreen extends ConsumerWidget {
     );
   }
 
-  /// 기간 필터 탭 — This Week / This Month
+  /// 기간 필터 탭 — [Last 7 Days] [All History 👑]
   Widget _buildFilterTabs(
+    BuildContext context,
     WidgetRef ref,
     HistoryFilter current,
     bool isPremium,
   ) {
     return Row(
       children: [
+        // ─── Last 7 Days ───
         _buildFilterChip(
-          ref: ref,
-          label: 'This Week',
-          filter: HistoryFilter.thisWeek,
-          isSelected: current == HistoryFilter.thisWeek,
+          label: context.l10n.lastSevenDays,
+          isSelected: current == HistoryFilter.last7Days,
+          onTap: () {
+            ref.read(historyFilterProvider.notifier).state =
+                HistoryFilter.last7Days;
+          },
         ),
         const SizedBox(width: 8),
+        // ─── All History 👑 ───
         _buildFilterChip(
-          ref: ref,
-          label: 'This Month',
-          filter: HistoryFilter.thisMonth,
-          isSelected: current == HistoryFilter.thisMonth,
+          label: context.l10n.allHistory,
+          isSelected: current == HistoryFilter.allHistory,
+          icon: isPremium ? '👑' : null,
+          locked: !isPremium,
+          onTap: () {
+            if (isPremium) {
+              ref.read(historyFilterProvider.notifier).state =
+                  HistoryFilter.allHistory;
+            } else {
+              PremiumBottomSheet.show(
+                context,
+                featureName: context.l10n.allHistory,
+              );
+            }
+          },
         ),
       ],
     );
   }
 
   Widget _buildFilterChip({
-    required WidgetRef ref,
     required String label,
-    required HistoryFilter filter,
     required bool isSelected,
+    required VoidCallback onTap,
+    String? icon,
     bool locked = false,
   }) {
     return GestureDetector(
-      onTap: () {
-        ref.read(historyFilterProvider.notifier).state = filter;
-      },
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : AppColors.surface,
+          color: isSelected ? AppColors.accent : AppColors.surfaceLight,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.divider,
-          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -217,11 +178,17 @@ class HistoryScreen extends ConsumerWidget {
               label,
               style: AppTextStyles.caption.copyWith(
                 color: isSelected
-                    ? AppColors.textPrimary
-                    : AppColors.textSecondary,
+                    ? Colors.white
+                    : locked
+                        ? AppColors.textTertiary
+                        : AppColors.textSecondary,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
+            if (icon != null) ...[
+              const SizedBox(width: 4),
+              Text(icon, style: const TextStyle(fontSize: 12)),
+            ],
             if (locked) ...[
               const SizedBox(width: 4),
               Icon(
@@ -251,14 +218,14 @@ class HistoryScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'No measurements yet',
+              context.l10n.historyEmpty,
               style: AppTextStyles.cardTitle.copyWith(
                 color: AppColors.textSecondary,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Start measuring noise levels and your sessions will appear here.',
+              context.l10n.historyEmptySub,
               style: AppTextStyles.body.copyWith(
                 color: AppColors.textTertiary,
               ),
@@ -271,7 +238,7 @@ class HistoryScreen extends ConsumerWidget {
               child: ElevatedButton.icon(
                 onPressed: () => context.go('/'),
                 icon: const Icon(Icons.mic, size: 18),
-                label: const Text('Start Measuring'),
+                label: Text(context.l10n.startMeasuringBtn),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.accent,
                   foregroundColor: Colors.white,

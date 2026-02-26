@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
+import 'package:soundsense/shared/extensions/l10n_extension.dart';
 
 /// 소음 레벨 가이드 데이터
 class _NoiseLevel {
@@ -17,20 +18,20 @@ class _NoiseLevel {
   final bool isDanger;
 }
 
-const _levels = [
-  _NoiseLevel(db: 30, description: 'Whisper, dawn', color: AppColors.levelSilent),
-  _NoiseLevel(db: 50, description: 'Quiet office', color: AppColors.levelQuiet),
-  _NoiseLevel(db: 60, description: 'Normal conversation', color: AppColors.levelModerate),
-  _NoiseLevel(db: 70, description: 'TV, vacuum cleaner', color: AppColors.levelModerate),
-  _NoiseLevel(db: 80, description: 'Alarm, busy street', color: AppColors.levelLoud),
+List<_NoiseLevel> _getLevels(BuildContext context) => [
+  _NoiseLevel(db: 30, description: context.l10n.guideWhisper, color: AppColors.levelSilent),
+  _NoiseLevel(db: 50, description: context.l10n.guideQuietOffice, color: AppColors.levelQuiet),
+  _NoiseLevel(db: 60, description: context.l10n.guideConversation, color: AppColors.levelModerate),
+  _NoiseLevel(db: 70, description: context.l10n.guideTvVacuum, color: AppColors.levelModerate),
+  _NoiseLevel(db: 80, description: context.l10n.guideAlarmStreet, color: AppColors.levelLoud),
   _NoiseLevel(
     db: 85,
-    description: 'Prolonged exposure risk',
+    description: context.l10n.guideProlongedRisk,
     color: AppColors.levelDanger,
     isDanger: true,
   ),
-  _NoiseLevel(db: 100, description: 'Construction, subway', color: AppColors.levelDanger),
-  _NoiseLevel(db: 120, description: 'Airplane takeoff', color: AppColors.levelDanger),
+  _NoiseLevel(db: 100, description: context.l10n.guideConstruction, color: AppColors.levelDanger),
+  _NoiseLevel(db: 120, description: context.l10n.guideAirplane, color: AppColors.levelDanger),
 ];
 
 /// 소음 레벨 가이드 화면
@@ -42,7 +43,7 @@ class NoiseGuideScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Noise Level Guide'),
+        title: Text(context.l10n.noiseGuide),
         centerTitle: true,
       ),
       body: ListView(
@@ -50,14 +51,14 @@ class NoiseGuideScreen extends StatelessWidget {
         children: [
           // 상단 설명
           Text(
-            'Understanding Noise Levels',
+            context.l10n.understandingNoiseLevels,
             style: AppTextStyles.cardTitle.copyWith(
               color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'How loud is the world around you?',
+            context.l10n.howLoudIsWorld,
             style: AppTextStyles.body.copyWith(
               color: AppColors.textSecondary,
             ),
@@ -65,12 +66,12 @@ class NoiseGuideScreen extends StatelessWidget {
           const SizedBox(height: 20),
 
           // 레벨 카드 8개
-          for (final level in _levels) _buildLevelCard(level),
+          for (final level in _getLevels(context)) _buildLevelCard(level),
 
           const SizedBox(height: 16),
 
           // WHO 기준 설명 카드
-          _buildWhoCard(),
+          _buildWhoCard(context),
           const SizedBox(height: 24),
         ],
       ),
@@ -163,7 +164,7 @@ class NoiseGuideScreen extends StatelessWidget {
   }
 
   /// WHO 기준 경고 카드
-  Widget _buildWhoCard() {
+  Widget _buildWhoCard(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -188,7 +189,7 @@ class NoiseGuideScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'WHO Guideline',
+                  context.l10n.whoGuideline,
                   style: AppTextStyles.body.copyWith(
                     color: AppColors.levelDanger,
                     fontWeight: FontWeight.w700,
@@ -196,8 +197,7 @@ class NoiseGuideScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Continuous exposure to 85 dB or above for 8 hours '
-                  'can cause permanent hearing damage.',
+                  context.l10n.whoWarningText,
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.textSecondary,
                     height: 1.5,

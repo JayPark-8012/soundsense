@@ -9,6 +9,9 @@ import 'package:soundsense/features/map/screens/map_screen.dart';
 import 'package:soundsense/features/onboarding/screens/onboarding_screen.dart';
 import 'package:soundsense/features/settings/screens/settings_screen.dart';
 import 'package:soundsense/features/settings/screens/noise_guide_screen.dart';
+import 'package:soundsense/features/settings/providers/settings_provider.dart';
+import 'package:soundsense/l10n/app_localizations.dart';
+import 'package:soundsense/shared/extensions/l10n_extension.dart';
 import 'package:soundsense/main.dart' show isOnboardingDoneProvider;
 
 final _routerProvider = Provider<GoRouter>((ref) {
@@ -129,11 +132,15 @@ class SoundSenseApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(_routerProvider);
+    final localeCode = ref.watch(selectedLocaleProvider);
     return MaterialApp.router(
       title: 'SoundSense',
       theme: AppTheme.dark,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: Locale(localeCode),
     );
   }
 }
@@ -156,26 +163,26 @@ class _AppShell extends StatelessWidget {
             initialLocation: index == navigationShell.currentIndex,
           );
         },
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.mic_none),
-            selectedIcon: Icon(Icons.mic),
-            label: 'Measure',
+            icon: const Icon(Icons.mic_none),
+            selectedIcon: const Icon(Icons.mic),
+            label: context.l10n.tabMeasure,
           ),
           NavigationDestination(
-            icon: Icon(Icons.history),
-            selectedIcon: Icon(Icons.history_rounded),
-            label: 'History',
+            icon: const Icon(Icons.history),
+            selectedIcon: const Icon(Icons.history_rounded),
+            label: context.l10n.tabHistory,
           ),
           NavigationDestination(
-            icon: Icon(Icons.map_outlined),
-            selectedIcon: Icon(Icons.map),
-            label: 'Map',
+            icon: const Icon(Icons.map_outlined),
+            selectedIcon: const Icon(Icons.map),
+            label: context.l10n.tabMap,
           ),
           NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
+            icon: const Icon(Icons.settings_outlined),
+            selectedIcon: const Icon(Icons.settings),
+            label: context.l10n.tabSettings,
           ),
         ],
       ),

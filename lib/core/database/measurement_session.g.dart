@@ -23,58 +23,63 @@ const MeasurementSessionSchema = CollectionSchema(
       name: r'avgDb',
       type: IsarType.double,
     ),
-    r'durationSec': PropertySchema(
+    r'dbSamples': PropertySchema(
       id: 1,
+      name: r'dbSamples',
+      type: IsarType.doubleList,
+    ),
+    r'durationSec': PropertySchema(
+      id: 2,
       name: r'durationSec',
       type: IsarType.long,
     ),
     r'endedAt': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'endedAt',
       type: IsarType.dateTime,
     ),
     r'firestoreId': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'firestoreId',
       type: IsarType.string,
     ),
     r'isSharedToMap': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'isSharedToMap',
       type: IsarType.bool,
     ),
     r'latitude': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'latitude',
       type: IsarType.double,
     ),
     r'locationName': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'locationName',
       type: IsarType.string,
     ),
     r'longitude': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'longitude',
       type: IsarType.double,
     ),
     r'maxDb': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'maxDb',
       type: IsarType.double,
     ),
     r'memo': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'memo',
       type: IsarType.string,
     ),
     r'minDb': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'minDb',
       type: IsarType.double,
     ),
     r'startedAt': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'startedAt',
       type: IsarType.dateTime,
     )
@@ -113,6 +118,7 @@ int _measurementSessionEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  bytesCount += 3 + object.dbSamples.length * 8;
   {
     final value = object.firestoreId;
     if (value != null) {
@@ -141,17 +147,18 @@ void _measurementSessionSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeDouble(offsets[0], object.avgDb);
-  writer.writeLong(offsets[1], object.durationSec);
-  writer.writeDateTime(offsets[2], object.endedAt);
-  writer.writeString(offsets[3], object.firestoreId);
-  writer.writeBool(offsets[4], object.isSharedToMap);
-  writer.writeDouble(offsets[5], object.latitude);
-  writer.writeString(offsets[6], object.locationName);
-  writer.writeDouble(offsets[7], object.longitude);
-  writer.writeDouble(offsets[8], object.maxDb);
-  writer.writeString(offsets[9], object.memo);
-  writer.writeDouble(offsets[10], object.minDb);
-  writer.writeDateTime(offsets[11], object.startedAt);
+  writer.writeDoubleList(offsets[1], object.dbSamples);
+  writer.writeLong(offsets[2], object.durationSec);
+  writer.writeDateTime(offsets[3], object.endedAt);
+  writer.writeString(offsets[4], object.firestoreId);
+  writer.writeBool(offsets[5], object.isSharedToMap);
+  writer.writeDouble(offsets[6], object.latitude);
+  writer.writeString(offsets[7], object.locationName);
+  writer.writeDouble(offsets[8], object.longitude);
+  writer.writeDouble(offsets[9], object.maxDb);
+  writer.writeString(offsets[10], object.memo);
+  writer.writeDouble(offsets[11], object.minDb);
+  writer.writeDateTime(offsets[12], object.startedAt);
 }
 
 MeasurementSession _measurementSessionDeserialize(
@@ -162,18 +169,19 @@ MeasurementSession _measurementSessionDeserialize(
 ) {
   final object = MeasurementSession();
   object.avgDb = reader.readDouble(offsets[0]);
-  object.durationSec = reader.readLong(offsets[1]);
-  object.endedAt = reader.readDateTime(offsets[2]);
-  object.firestoreId = reader.readStringOrNull(offsets[3]);
+  object.dbSamples = reader.readDoubleList(offsets[1]) ?? [];
+  object.durationSec = reader.readLong(offsets[2]);
+  object.endedAt = reader.readDateTime(offsets[3]);
+  object.firestoreId = reader.readStringOrNull(offsets[4]);
   object.id = id;
-  object.isSharedToMap = reader.readBool(offsets[4]);
-  object.latitude = reader.readDoubleOrNull(offsets[5]);
-  object.locationName = reader.readStringOrNull(offsets[6]);
-  object.longitude = reader.readDoubleOrNull(offsets[7]);
-  object.maxDb = reader.readDouble(offsets[8]);
-  object.memo = reader.readStringOrNull(offsets[9]);
-  object.minDb = reader.readDouble(offsets[10]);
-  object.startedAt = reader.readDateTime(offsets[11]);
+  object.isSharedToMap = reader.readBool(offsets[5]);
+  object.latitude = reader.readDoubleOrNull(offsets[6]);
+  object.locationName = reader.readStringOrNull(offsets[7]);
+  object.longitude = reader.readDoubleOrNull(offsets[8]);
+  object.maxDb = reader.readDouble(offsets[9]);
+  object.memo = reader.readStringOrNull(offsets[10]);
+  object.minDb = reader.readDouble(offsets[11]);
+  object.startedAt = reader.readDateTime(offsets[12]);
   return object;
 }
 
@@ -187,26 +195,28 @@ P _measurementSessionDeserializeProp<P>(
     case 0:
       return (reader.readDouble(offset)) as P;
     case 1:
-      return (reader.readLong(offset)) as P;
+      return (reader.readDoubleList(offset) ?? []) as P;
     case 2:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 3:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 4:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 5:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 6:
-      return (reader.readStringOrNull(offset)) as P;
-    case 7:
       return (reader.readDoubleOrNull(offset)) as P;
-    case 8:
-      return (reader.readDouble(offset)) as P;
-    case 9:
+    case 7:
       return (reader.readStringOrNull(offset)) as P;
-    case 10:
+    case 8:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 9:
       return (reader.readDouble(offset)) as P;
+    case 10:
+      return (reader.readStringOrNull(offset)) as P;
     case 11:
+      return (reader.readDouble(offset)) as P;
+    case 12:
       return (reader.readDateTime(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -474,6 +484,161 @@ extension MeasurementSessionQueryFilter
         includeUpper: includeUpper,
         epsilon: epsilon,
       ));
+    });
+  }
+
+  QueryBuilder<MeasurementSession, MeasurementSession, QAfterFilterCondition>
+      dbSamplesElementEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'dbSamples',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<MeasurementSession, MeasurementSession, QAfterFilterCondition>
+      dbSamplesElementGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'dbSamples',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<MeasurementSession, MeasurementSession, QAfterFilterCondition>
+      dbSamplesElementLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'dbSamples',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<MeasurementSession, MeasurementSession, QAfterFilterCondition>
+      dbSamplesElementBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'dbSamples',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<MeasurementSession, MeasurementSession, QAfterFilterCondition>
+      dbSamplesLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'dbSamples',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<MeasurementSession, MeasurementSession, QAfterFilterCondition>
+      dbSamplesIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'dbSamples',
+        0,
+        true,
+        0,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<MeasurementSession, MeasurementSession, QAfterFilterCondition>
+      dbSamplesIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'dbSamples',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<MeasurementSession, MeasurementSession, QAfterFilterCondition>
+      dbSamplesLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'dbSamples',
+        0,
+        true,
+        length,
+        include,
+      );
+    });
+  }
+
+  QueryBuilder<MeasurementSession, MeasurementSession, QAfterFilterCondition>
+      dbSamplesLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'dbSamples',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<MeasurementSession, MeasurementSession, QAfterFilterCondition>
+      dbSamplesLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'dbSamples',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
     });
   }
 
@@ -1846,6 +2011,13 @@ extension MeasurementSessionQueryWhereDistinct
   }
 
   QueryBuilder<MeasurementSession, MeasurementSession, QDistinct>
+      distinctByDbSamples() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'dbSamples');
+    });
+  }
+
+  QueryBuilder<MeasurementSession, MeasurementSession, QDistinct>
       distinctByDurationSec() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'durationSec');
@@ -1934,6 +2106,13 @@ extension MeasurementSessionQueryProperty
   QueryBuilder<MeasurementSession, double, QQueryOperations> avgDbProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'avgDb');
+    });
+  }
+
+  QueryBuilder<MeasurementSession, List<double>, QQueryOperations>
+      dbSamplesProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'dbSamples');
     });
   }
 

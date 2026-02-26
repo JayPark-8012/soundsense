@@ -11,6 +11,7 @@ import 'package:soundsense/core/permissions/location_permission.dart';
 import 'package:soundsense/core/platform/web_map_placeholder.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
+import 'package:soundsense/shared/extensions/l10n_extension.dart';
 import 'package:soundsense/features/map/providers/map_provider.dart';
 import 'package:soundsense/features/map/widgets/marker_info_sheet.dart';
 
@@ -212,7 +213,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           ),
           const SizedBox(width: 6),
           Text(
-            'Noise Map',
+            context.l10n.mapTitle,
             style: AppTextStyles.body.copyWith(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w600,
@@ -227,7 +228,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
-              'BETA',
+              context.l10n.mapBeta.toUpperCase(),
               style: AppTextStyles.caption.copyWith(
                 color: AppColors.accent,
                 fontWeight: FontWeight.w700,
@@ -264,14 +265,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'No noise data yet',
+                context.l10n.mapEmpty,
                 style: AppTextStyles.cardTitle.copyWith(
                   color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'Measure noise and save with location\nto see markers on the map',
+                context.l10n.mapEmptySub,
                 textAlign: TextAlign.center,
                 style: AppTextStyles.body.copyWith(
                   color: AppColors.textTertiary,
@@ -284,7 +285,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 child: ElevatedButton.icon(
                   onPressed: () => context.go('/'),
                   icon: const Icon(Icons.mic, size: 18),
-                  label: const Text('Go Measure'),
+                  label: Text(context.l10n.goMeasure),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.accent,
                     foregroundColor: Colors.white,
@@ -447,14 +448,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Location permission denied. Please enable in Settings.'),
+            content: Text(context.l10n.locationPermissionDenied.replaceAll('\n', ' ')),
             backgroundColor: AppColors.warning,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
             action: SnackBarAction(
-              label: 'Settings',
+              label: context.l10n.settingsTitle,
               textColor: Colors.white,
               onPressed: () {
                 ref.read(locationPermissionProvider.notifier).openSettings();
@@ -507,7 +508,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Unable to get current location'),
+            content: Text(context.l10n.locationUnavailable),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(

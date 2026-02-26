@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:soundsense/core/permissions/microphone_permission.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
+import 'package:soundsense/shared/extensions/l10n_extension.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
 import 'package:soundsense/shared/utils/haptic_utils.dart';
 
@@ -38,7 +39,7 @@ class OnboardingPage3 extends ConsumerWidget {
 
           // ─── 타이틀 ───
           Text(
-            "Let's start measuring",
+            context.l10n.onboardingTitle3,
             textAlign: TextAlign.center,
             style: AppTextStyles.dbDisplay.copyWith(
               fontSize: 28,
@@ -85,7 +86,7 @@ class OnboardingPage3 extends ConsumerWidget {
                 elevation: 0,
               ),
               child: Text(
-                'Allow Microphone',
+                context.l10n.allowMicrophone,
                 style: AppTextStyles.body.copyWith(
                   color: Colors.white,
                   fontSize: 16,
@@ -100,7 +101,7 @@ class OnboardingPage3 extends ConsumerWidget {
           TextButton(
             onPressed: onNext,
             child: Text(
-              'Skip',
+              context.l10n.skip,
               style: AppTextStyles.body.copyWith(
                 color: AppColors.textTertiary,
                 fontSize: 14,

@@ -1,0 +1,310 @@
+{
+  "@@locale": "en",
+
+  "appName": "SoundSense",
+  "save": "Save",
+  "cancel": "Cancel",
+  "skip": "Skip",
+  "next": "Next",
+  "done": "Done",
+  "close": "Close",
+  "retry": "Retry",
+  "pro": "PRO",
+
+  "tabMeasure": "Measure",
+  "tabHistory": "History",
+  "tabMap": "Map",
+  "tabSettings": "Settings",
+
+  "startMeasuring": "Start Measuring",
+  "stopAndSave": "Stop & Save",
+  "safeExposure": "Safe exposure: {time} remaining",
+  "@safeExposure": {
+    "placeholders": {
+      "time": {"type": "String"}
+    }
+  },
+  "safeForExtended": "Safe for extended exposure 🟢",
+  "responseFast": "Fast",
+  "responseSlow": "Slow",
+  "minLabel": "MIN",
+  "avgLabel": "AVG",
+  "maxLabel": "MAX",
+  "dbUnit": "dB",
+
+  "levelSilent": "Very Quiet",
+  "levelQuiet": "Quiet",
+  "levelModerate": "Moderate",
+  "levelLoud": "Loud",
+  "levelDanger": "Dangerous",
+
+  "saveSession": "Save Measurement",
+  "sessionSaved": "Measurement saved!",
+  "dontSave": "Don't Save",
+  "addMemo": "+ Add memo",
+  "shareToMap": "Share to noise map",
+  "includeLocation": "Include location",
+  "measurementComplete": "Measurement Complete 💾",
+
+  "historyTitle": "History",
+  "historyEmpty": "No measurements yet",
+  "historyEmptySub": "Tap the mic button to start\nyour first measurement",
+  "startMeasuringBtn": "Start Measuring",
+  "lastSevenDays": "Last 7 Days",
+  "allHistory": "All History",
+  "duration": "Duration",
+  "location": "Location",
+  "unknownLocation": "Unknown location",
+
+  "sessionDetail": "Session Detail",
+  "levelEvaluation": "Level Evaluation",
+  "safeExposureTime": "Safe Exposure Time",
+  "noiseDistribution": "Noise Distribution",
+  "exportCsv": "Export CSV",
+  "noiseCard": "Noise Card",
+  "shareResult": "Share Result",
+  "deleteSession": "Delete",
+  "deleteConfirm": "Delete this measurement?",
+  "deleteConfirmDesc": "This action cannot be undone.",
+
+  "mapTitle": "Noise Map",
+  "mapEmpty": "No noise data yet",
+  "mapEmptySub": "Save measurements with location\nto see them on the map",
+  "goMeasure": "Go Measure",
+  "mapBeta": "Beta",
+  "currentLocation": "Current Location",
+
+  "settingsTitle": "Settings",
+  "calibration": "Microphone Calibration",
+  "calibrationDesc": "Compare with a professional sound meter\nand adjust if needed",
+  "calibrationDefault": "0.0 dB (Default)",
+  "resetDefault": "Reset to Default",
+  "noiseAlert": "Noise Alert",
+  "noiseAlertDesc": "Alert when noise exceeds 85dB",
+  "language": "Language",
+  "proFeatures": "PRO Features",
+  "monthlyPdf": "Monthly PDF Report",
+  "csvExport": "CSV Export",
+  "noiseGuide": "Noise Level Guide",
+  "disclaimer": "Disclaimer",
+  "privacyPolicy": "Privacy Policy",
+  "version": "Version",
+  "resetOnboarding": "Reset Onboarding",
+
+  "onboardingTitle1": "Measure the world\naround you",
+  "onboardingDesc1": "Real-time noise measurement,\nhistory & noise map",
+  "getStarted": "Get Started →",
+  "onboardingTitle2": "Know your noise levels",
+  "onboardingDesc2": "WHO recommends limiting exposure\nto 85dB+ for hearing safety",
+  "onboardingTitle3": "Let's start measuring",
+  "allowMicrophone": "Allow Microphone",
+  "noAudioRecorded": "✓ No audio is recorded or stored",
+  "onlyDbMeasured": "✓ Only decibel levels are measured",
+  "dataOnDevice": "✓ Data stays on your device",
+  "onboardingTitle4": "Tag your measurements",
+  "onboardingDesc4": "Auto-tag locations & contribute\nto the community noise map",
+  "allowLocation": "Allow Location",
+  "maybeLater": "Maybe Later",
+
+  "unlockPro": "Unlock with PRO",
+  "getLifetimePro": "Get Lifetime PRO",
+  "proFeature1": "✨ Unlimited history",
+  "proFeature2": "📊 Timeline chart",
+  "proFeature3": "📄 Monthly PDF report",
+  "proFeature4": "📁 CSV export",
+  "proFeature5": "🚫 Ad-free experience",
+  "restorePurchase": "Restore Purchase",
+  "purchaseFailedTitle": "Purchase Failed",
+  "purchaseFailedMessage": "Something went wrong.\nPlease try again later.",
+  "restoreFailedTitle": "Restore Failed",
+  "restoreFailedMessage": "Something went wrong.\nPlease try again later.",
+  "proActivated": "PRO unlocked successfully!",
+  "restoreNoPurchase": "No previous purchase found.",
+  "ok": "OK",
+
+  "locationUnavailable": "Location unavailable",
+  "locationPermissionDenied": "Location permission denied.\nPlease enable in Settings.",
+  "micPermissionDenied": "Microphone permission required\nto measure noise levels.",
+  "uploadFailed": "Map upload failed. Saved locally.",
+  "comingSoon": "Coming soon!",
+  "noMeasurementsToExport": "No measurements to export",
+  "noMeasurementsThisMonth": "No measurements this month",
+
+  "noiseCardDisclaimer": "For reference only. ±5-10dB variance possible.",
+  "saveToPhotos": "Save to Photos",
+  "share": "Share",
+  "measuredWith": "Measured with SoundSense",
+
+  "micAccessRequired": "Microphone Access Required",
+  "micPermDeniedPermanent": "Microphone access was permanently denied.\nPlease enable it in your device settings.",
+  "micPermNeeded": "SoundSense needs microphone access\nto measure noise levels.",
+  "openSettings": "Open Settings",
+  "immediateHearingRisk": "Immediate hearing risk!",
+
+  "memo": "Memo",
+  "memoHint": "Add a note about this session...",
+  "enterManually": "Enter manually",
+  "gettingLocation": "Getting location...",
+  "locationHint": "e.g. Gangnam Station, Office...",
+  "shareToMapDesc": "Help others discover noise levels in your area",
+  "addLocationToShare": "Add location to enable sharing",
+
+  "failedToSave": "Failed to save",
+  "failedToLoadSessions": "Failed to load sessions",
+  "failedToLoadSession": "Failed to load session",
+  "failedToSaveSession": "Failed to save session",
+  "failedToExportCsv": "Failed to export CSV",
+  "failedToGenerateCard": "Failed to generate card",
+  "failedToGeneratePdf": "Failed to generate PDF report",
+
+  "invalidSessionId": "Invalid session ID",
+  "sessionNotFound": "Session not found",
+  "timelineChart": "Timeline Chart",
+  "evalSilent": "Very peaceful environment",
+  "evalQuiet": "Comfortable noise level",
+  "evalModerate": "Normal everyday noise",
+  "evalLoud": "Prolonged exposure may cause fatigue",
+  "evalDanger": "⚠️ Risk of hearing damage with prolonged exposure",
+  "safeForExtendedExposure": "Safe for extended exposure",
+  "safeHours": "{hours} hours",
+  "@safeHours": {
+    "placeholders": {
+      "hours": {"type": "String"}
+    }
+  },
+  "safeMinutes": "{minutes} min",
+  "@safeMinutes": {
+    "placeholders": {
+      "minutes": {"type": "String"}
+    }
+  },
+  "levelDistribution": "Level Distribution",
+  "locationRecorded": "Location recorded",
+  "sharedBadge": "Shared",
+  "availableInPro": "Available in PRO",
+  "noTimelineData": "No timeline data for this session",
+  "noiseShareText": "SoundSense noise data",
+  "savedToPhotos": "Saved to Photos",
+  "saving": "Saving...",
+  "sharing": "Sharing...",
+
+  "shareNoiseReport": "SoundSense - Noise Report",
+  "shareDate": "Date: {date}",
+  "@shareDate": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "shareLevel": "Level: {level}",
+  "@shareLevel": {
+    "placeholders": {
+      "level": {"type": "String"}
+    }
+  },
+  "shareAvg": "AVG: {value} dB",
+  "@shareAvg": {
+    "placeholders": {
+      "value": {"type": "String"}
+    }
+  },
+  "shareMax": "MAX: {value} dB",
+  "@shareMax": {
+    "placeholders": {
+      "value": {"type": "String"}
+    }
+  },
+  "shareMin": "MIN: {value} dB",
+  "@shareMin": {
+    "placeholders": {
+      "value": {"type": "String"}
+    }
+  },
+  "shareLocationLabel": "Location: {location}",
+  "@shareLocationLabel": {
+    "placeholders": {
+      "location": {"type": "String"}
+    }
+  },
+  "shareMemoLabel": "Memo: {memo}",
+  "@shareMemoLabel": {
+    "placeholders": {
+      "memo": {"type": "String"}
+    }
+  },
+
+  "dbAvg": "dB avg",
+
+  "weeklyAverage": "Weekly Average",
+  "weekMon": "Mon",
+  "weekTue": "Tue",
+  "weekWed": "Wed",
+  "weekThu": "Thu",
+  "weekFri": "Fri",
+  "weekSat": "Sat",
+  "weekSun": "Sun",
+
+  "viewDetails": "View Details",
+
+  "information": "Information",
+  "soundsensePro": "SoundSense PRO",
+  "proDesc": "Unlock full history, detailed charts, and more",
+  "proFromPrice": "Just $8.99",
+  "proActiveDesc": "All premium features are unlocked.",
+  "proActiveLabel": "Active",
+  "calibrationSubtitle": "Adjust if readings seem too high or low",
+  "calibrationWarning": "This is not a certified measurement device. Values are approximate.",
+  "proPricing": "$8.99 one-time purchase",
+  "oneTimePurchase": "One-time payment · No subscription",
+  "proLifetime": "Lifetime",
+  "proAdFree": "Ad-free experience",
+
+  "proUnlimitedHistory": "Unlimited history",
+  "proTimelineChart": "Timeline chart",
+  "proMonthlyReport": "Monthly PDF report",
+  "proCsvExport": "CSV export",
+
+  "understandingNoiseLevels": "Understanding Noise Levels",
+  "howLoudIsWorld": "How loud is the world around you?",
+  "guideWhisper": "Whisper, dawn",
+  "guideQuietOffice": "Quiet office",
+  "guideConversation": "Normal conversation",
+  "guideTvVacuum": "TV, vacuum cleaner",
+  "guideAlarmStreet": "Alarm, busy street",
+  "guideProlongedRisk": "Prolonged exposure risk",
+  "guideConstruction": "Construction, subway",
+  "guideAirplane": "Airplane takeoff",
+  "whoGuideline": "WHO Guideline",
+  "whoWarningText": "Continuous exposure to 85 dB or above for 8 hours can cause permanent hearing damage.",
+
+  "disclaimerContent": "Measurements are for reference only.\n\nSmartphone microphones may have ±5–10 dB variance compared to professional sound level meters.\n\nNot suitable for legal, medical, or official use.",
+
+  "ppDataCollectTitle": "Data We Collect",
+  "ppDataCollect1": "Noise level measurements (dB values)",
+  "ppDataCollect2": "Location (optional, only when you share to map)",
+  "ppDataCollect3": "Anonymous device ID (Firebase Anonymous Auth)",
+  "ppDataNotCollectTitle": "Data We Do NOT Collect",
+  "ppDataNotCollect1": "Personal information (name, email, phone)",
+  "ppDataNotCollect2": "Audio recordings — no sound is ever stored",
+  "ppDataNotCollect3": "Browsing history or app usage tracking",
+  "ppAnonAuthTitle": "Anonymous Authentication",
+  "ppAnonAuthBody": "SoundSense uses Firebase Anonymous Auth to generate a random device identifier. This ID cannot be traced back to you personally. It is used only to associate your shared map data for deletion requests.",
+  "ppDataStorageTitle": "Data Storage",
+  "ppDataStorageBody": "All measurement sessions are stored locally on your device. Only data you explicitly choose to share is uploaded to Firebase Firestore for the community noise map.",
+  "ppDataDeletionTitle": "Data Deletion",
+  "ppDataDeletionBody": "You can delete all your data at any time using the button below. This removes all local measurement sessions and any data you shared to the noise map.",
+  "ppContactTitle": "Contact",
+  "ppContactBody": "For questions about this privacy policy or data requests, please contact us at:\nsupport@soundsense.app",
+  "deleteAllMyData": "Delete All My Data",
+  "deleteAllDataTitle": "Delete All Data?",
+  "deleteAllDataBody": "This will permanently delete:\n\n• All local measurement sessions\n• All your data shared to the noise map\n\nThis action cannot be undone.",
+  "deleteEverything": "Delete Everything",
+  "allDataDeleted": "All data has been deleted.",
+  "failedToDeleteData": "Failed to delete data",
+
+  "enableLaterInSettings": "You can enable this later in Settings",
+  "levelSilentDesc": "Library, early morning",
+  "levelQuietDesc": "Office, quiet street",
+  "levelModerateDesc": "Conversation, cafe",
+  "levelLoudDesc": "Busy street, restaurant",
+  "levelDangerDesc": "Hearing damage risk"
+}

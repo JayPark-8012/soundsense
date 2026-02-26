@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
+import 'package:soundsense/shared/extensions/l10n_extension.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
 import 'package:soundsense/shared/utils/haptic_utils.dart';
 
@@ -19,7 +20,7 @@ class OnboardingPage2 extends StatelessWidget {
 
           // ─── 타이틀 ───
           Text(
-            'Know your noise levels',
+            context.l10n.onboardingTitle2,
             textAlign: TextAlign.center,
             style: AppTextStyles.dbDisplay.copyWith(
               fontSize: 28,
@@ -33,7 +34,7 @@ class OnboardingPage2 extends StatelessWidget {
 
           // ─── 서브 ───
           Text(
-            'WHO recommends limiting exposure\nto 85dB+ for hearing safety',
+            context.l10n.onboardingDesc2,
             textAlign: TextAlign.center,
             style: AppTextStyles.body.copyWith(
               fontSize: 14,
@@ -46,33 +47,33 @@ class OnboardingPage2 extends StatelessWidget {
           // ─── 레벨 카드 5개 ───
           _buildLevelCard(
             color: AppColors.levelSilent,
-            label: 'Very Quiet',
+            label: context.l10n.levelSilent,
             db: '~40dB',
-            description: 'Library, early morning',
+            description: context.l10n.levelSilentDesc,
           ),
           _buildLevelCard(
             color: AppColors.levelQuiet,
-            label: 'Quiet',
+            label: context.l10n.levelQuiet,
             db: '~55dB',
-            description: 'Office, quiet street',
+            description: context.l10n.levelQuietDesc,
           ),
           _buildLevelCard(
             color: AppColors.levelModerate,
-            label: 'Moderate',
+            label: context.l10n.levelModerate,
             db: '~65dB',
-            description: 'Conversation, cafe',
+            description: context.l10n.levelModerateDesc,
           ),
           _buildLevelCard(
             color: AppColors.levelLoud,
-            label: 'Loud',
+            label: context.l10n.levelLoud,
             db: '~75dB',
-            description: 'Busy street, restaurant',
+            description: context.l10n.levelLoudDesc,
           ),
           _buildLevelCard(
             color: AppColors.levelDanger,
-            label: 'Dangerous',
+            label: context.l10n.levelDanger,
             db: '85dB+',
-            description: 'Hearing damage risk',
+            description: context.l10n.levelDangerDesc,
             isDanger: true,
           ),
 
@@ -99,7 +100,7 @@ class OnboardingPage2 extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Next',
+                    context.l10n.next,
                     style: AppTextStyles.body.copyWith(
                       color: Colors.white,
                       fontSize: 16,

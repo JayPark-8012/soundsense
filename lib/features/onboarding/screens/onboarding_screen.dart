@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
+import 'package:soundsense/shared/extensions/l10n_extension.dart';
 import 'package:soundsense/features/onboarding/screens/onboarding_page_1.dart';
 import 'package:soundsense/features/onboarding/screens/onboarding_page_2.dart';
 import 'package:soundsense/features/onboarding/screens/onboarding_page_3.dart';
@@ -79,7 +80,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 child: TextButton(
                   onPressed: _completeOnboarding,
                   child: Text(
-                    'Skip',
+                    context.l10n.skip,
                     style: TextStyle(
                       color: AppColors.textTertiary,
                       fontSize: 15,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
 import 'package:soundsense/shared/constants/db_levels.dart';
+import 'package:soundsense/shared/extensions/l10n_extension.dart';
 
 /// 주간 막대 차트 위젯
 /// 최근 7일 날짜별 평균 dB, 레벨 색상 막대
@@ -32,7 +33,7 @@ class WeeklyBarChart extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(left: 8, bottom: 12),
             child: Text(
-              'Weekly Average',
+              context.l10n.weeklyAverage,
               style: AppTextStyles.body.copyWith(
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.w600,
@@ -79,7 +80,7 @@ class WeeklyBarChart extends StatelessWidget {
                         return Padding(
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
-                            _weekdayLabel(date.weekday),
+                            _weekdayLabel(context, date.weekday),
                             style: AppTextStyles.caption.copyWith(
                               color: AppColors.textTertiary,
                               fontSize: 11,
@@ -166,15 +167,15 @@ class WeeklyBarChart extends StatelessWidget {
   }
 
   /// 요일 약어
-  String _weekdayLabel(int weekday) {
+  String _weekdayLabel(BuildContext context, int weekday) {
     return switch (weekday) {
-      DateTime.monday => 'Mon',
-      DateTime.tuesday => 'Tue',
-      DateTime.wednesday => 'Wed',
-      DateTime.thursday => 'Thu',
-      DateTime.friday => 'Fri',
-      DateTime.saturday => 'Sat',
-      DateTime.sunday => 'Sun',
+      DateTime.monday => context.l10n.weekMon,
+      DateTime.tuesday => context.l10n.weekTue,
+      DateTime.wednesday => context.l10n.weekWed,
+      DateTime.thursday => context.l10n.weekThu,
+      DateTime.friday => context.l10n.weekFri,
+      DateTime.saturday => context.l10n.weekSat,
+      DateTime.sunday => context.l10n.weekSun,
       _ => '',
     };
   }

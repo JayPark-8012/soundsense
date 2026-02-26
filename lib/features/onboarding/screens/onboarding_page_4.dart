@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:soundsense/core/permissions/location_permission.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
+import 'package:soundsense/shared/extensions/l10n_extension.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
 import 'package:soundsense/shared/utils/haptic_utils.dart';
 
@@ -38,7 +39,7 @@ class OnboardingPage4 extends ConsumerWidget {
 
           // ─── 타이틀 ───
           Text(
-            'Tag your measurements',
+            context.l10n.onboardingTitle4,
             textAlign: TextAlign.center,
             style: AppTextStyles.dbDisplay.copyWith(
               fontSize: 28,
@@ -52,7 +53,7 @@ class OnboardingPage4 extends ConsumerWidget {
 
           // ─── 서브 ───
           Text(
-            'Auto-tag locations & contribute\nto the community noise map',
+            context.l10n.onboardingDesc4,
             textAlign: TextAlign.center,
             style: AppTextStyles.body.copyWith(
               fontSize: 15,
@@ -62,7 +63,7 @@ class OnboardingPage4 extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'You can enable this later in Settings',
+            context.l10n.enableLaterInSettings,
             textAlign: TextAlign.center,
             style: AppTextStyles.caption.copyWith(
               fontSize: 13,
@@ -95,7 +96,7 @@ class OnboardingPage4 extends ConsumerWidget {
                 elevation: 0,
               ),
               child: Text(
-                'Allow Location',
+                context.l10n.allowLocation,
                 style: AppTextStyles.body.copyWith(
                   color: Colors.white,
                   fontSize: 16,
@@ -124,7 +125,7 @@ class OnboardingPage4 extends ConsumerWidget {
                 elevation: 0,
               ),
               child: Text(
-                'Maybe Later',
+                context.l10n.maybeLater,
                 style: AppTextStyles.body.copyWith(
                   color: AppColors.textSecondary,
                   fontSize: 16,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
+import 'package:soundsense/shared/extensions/l10n_extension.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
 import 'package:soundsense/shared/utils/haptic_utils.dart';
 
@@ -42,7 +43,7 @@ class OnboardingPage1 extends StatelessWidget {
 
           // ─── 타이틀 ───
           Text(
-            'Measure the world\naround you',
+            context.l10n.onboardingTitle1,
             textAlign: TextAlign.center,
             style: AppTextStyles.dbDisplay.copyWith(
               fontSize: 28,
@@ -56,7 +57,7 @@ class OnboardingPage1 extends StatelessWidget {
 
           // ─── 서브 ───
           Text(
-            'Real-time noise measurement,\nhistory & noise map',
+            context.l10n.onboardingDesc1,
             textAlign: TextAlign.center,
             style: AppTextStyles.body.copyWith(
               fontSize: 16,
@@ -84,20 +85,13 @@ class OnboardingPage1 extends StatelessWidget {
                 ),
                 elevation: 0,
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Get Started',
-                    style: AppTextStyles.body.copyWith(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(Icons.arrow_forward_rounded, size: 20),
-                ],
+              child: Text(
+                context.l10n.getStarted,
+                style: AppTextStyles.body.copyWith(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),

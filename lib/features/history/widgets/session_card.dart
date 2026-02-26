@@ -4,6 +4,7 @@ import 'package:soundsense/core/database/measurement_session.dart';
 import 'package:soundsense/core/theme/app_colors.dart';
 import 'package:soundsense/core/theme/app_text_styles.dart';
 import 'package:soundsense/shared/constants/db_levels.dart';
+import 'package:soundsense/shared/extensions/l10n_extension.dart';
 import 'package:soundsense/shared/utils/haptic_utils.dart';
 
 /// 세션 카드 위젯
@@ -116,7 +117,7 @@ class _SessionCardState extends State<SessionCard> {
                                 const SizedBox(width: 4),
                                 Expanded(
                                   child: Text(
-                                    session.locationName ?? 'Unknown location',
+                                    session.locationName ?? context.l10n.unknownLocation,
                                     style: AppTextStyles.caption.copyWith(
                                       color: AppColors.textTertiary,
                                     ),
@@ -143,7 +144,7 @@ class _SessionCardState extends State<SessionCard> {
                                 ),
                                 const SizedBox(width: 12),
                                 Text(
-                                  'MAX ',
+                                  '${context.l10n.maxLabel} ',
                                   style: AppTextStyles.caption.copyWith(
                                     color: AppColors.textTertiary,
                                     fontSize: 10,
@@ -176,7 +177,7 @@ class _SessionCardState extends State<SessionCard> {
                             ),
                           ),
                           Text(
-                            'dB avg',
+                            context.l10n.dbAvg,
                             style: AppTextStyles.caption.copyWith(
                               color: AppColors.textTertiary,
                               fontSize: 11,

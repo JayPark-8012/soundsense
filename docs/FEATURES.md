@@ -57,7 +57,7 @@
 - [ ] SessionRepository (CRUD)
 - [ ] 히스토리 목록 화면
 - [ ] 세션 카드 (날짜, 평균/최대 dB, 시간)
-- [ ] 기간 필터 (이번 주 / 이번 달)
+- [x] 기간 필터 ([Last 7 Days] / [All History 👑])
 - [ ] 주간 막대 차트 (fl_chart) — 최근 7일만
 - [ ] 세션 상세 화면 (평균/최대/최소)
 - [ ] 소음 분포 바 (Distribution Bar)
@@ -99,7 +99,7 @@
 - [x] 최초 실행 여부 저장 (SharedPreferences)
 - [x] kDebugMode 온보딩 리셋 버튼 (설정 화면)
 - [x] 설정 화면
-- [x] 알림 설정 (85dB 경고, 주간 리포트)
+- [x] 알림 설정 (85dB 경고)
 - [x] 언어 전환 (EN / KR)
 - [x] 소음 기준 가이드 화면
 - [x] 면책 조항 화면
@@ -110,7 +110,7 @@
 ## Phase 6 — PRO 잠금 UI
 
 - [x] PremiumGuard 위젯 (공통 잠금 처리)
-- [x] 히스토리 잠금 방식 변경 (목록 전체 표시 + 상세만 PRO 잠금)
+- [x] 히스토리 잠금 방식 변경 (Last 7 Days 무료 + All History PRO 잠금)
 - [x] 세션 시간대별 라인 차트 잠금 처리
 - [x] 월간 PDF 리포트 잠금 처리
 - [x] CSV 내보내기 잠금 처리
@@ -133,24 +133,25 @@
 
 ## Phase 8 — l10n (다국어)
 
-- [ ] EN/KR ARB 파일 분리
-- [ ] 모든 하드코딩 문자열 l10n 키로 교체
-- [ ] 설정 화면 언어 전환 연동
+- [x] EN/KR ARB 파일 분리
+- [x] 모든 하드코딩 문자열 l10n 키로 교체
+- [x] 설정 화면 언어 전환 연동
+- [x] context.l10n 단축 extension 생성
+- [x] MaterialApp locale / delegates / supportedLocales 연동
 
 ---
 
 ## Phase 9 — 수익화
 
-- [ ] AdMob 초기화 (google_mobile_ads)
-- [ ] 전면 광고 (Interstitial) — 세션 저장 3회마다 1회
-- [ ] 리워드 광고 (Rewarded) — 무료 유저 PDF 요청 시
-- [ ] RevenueCat 초기화 (purchases_flutter)
-- [ ] 구독 상품 연동 (월간 / 연간)
-- [ ] isPremiumProvider ↔ RevenueCat 연결
-- [ ] PremiumBottomSheet ↔ RevenueCat 결제 연결
-- [ ] 7일 무료 체험
-- [ ] 구독 복원 기능
-- [ ] PRO 상태에 따른 광고 제거 (전면 + 리워드 모두)
+- [x] AdMob 초기화 (google_mobile_ads)
+- [x] 전면 광고 (Interstitial) — 세션 저장 3회마다 1회
+- [x] 리워드 광고 (Rewarded) — 무료 유저 PDF 요청 시
+- [x] RevenueCat 초기화 (purchases_flutter)
+- [x] Lifetime PRO 1회 결제 상품 연동 ($8.99 / ₩9,900)
+- [x] isPremiumProvider ↔ RevenueCat 연결
+- [x] PremiumBottomSheet ↔ RevenueCat 결제 연결
+- [x] 구매 복원 기능
+- [x] PRO 상태에 따른 광고 제거 (전면 + 리워드 모두)
 
 ---
 
